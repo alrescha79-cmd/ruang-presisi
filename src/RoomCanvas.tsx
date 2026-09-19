@@ -13,6 +13,7 @@ type Props = {
   selectedId: string | null
   onSelect: (id: string) => void
   onMove: (id: string, xMm: number, zMm: number) => void
+  onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
 const floorPlane = new Plane(new Vector3(0, 1, 0), 0)
@@ -181,15 +182,17 @@ function Scene({ room, items, door, walls, selectedId, onSelect, onMove }: Props
 export function RoomCanvas(props: Props) {
   const [cancelKey, setCancelKey] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { onCanvasReady } = props
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    onCanvasReady?.(canvas)
     const cancel = () => setCancelKey((key) => key + 1)
     canvas.addEventListener('pointercancel', cancel)
     canvas.addEventListener('lostpointercapture', cancel)
     return () => { canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('lostpointercapture', cancel) }
-  }, [])
+  }, [onCanvasReady])
 
-  return <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} camera={{ position: [5, 6, 7], fov: 42 }} onPointerMissed={() => props.onSelect('')}><Scene key={cancelKey} {...props} /></Canvas>
+  return <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [5, 6, 7], fov: 42 }} onPointerMissed={() => props.onSelect('')}><Scene key={cancelKey} {...props} /></Canvas>
 }
