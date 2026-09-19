@@ -122,3 +122,101 @@ export function clampItem(item: Furniture, room: Room): Furniture {
     zMm: Math.max(0, Math.min(item.zMm, room.depthMm - size.depthMm)),
   }
 }
+
+export function findEmptyPosition(
+  template: Omit<Furniture, 'id' | 'xMm' | 'zMm'>,
+  items: Furniture[],
+  room: Room,
+  door?: Door
+): { xMm: number; zMm: number } {
+  const dummy: Furniture = { ...template, id: '__temp__', xMm: 0, zMm: 0 }
+  const size = footprint(dummy)
+  const wallPadding = 150
+  const itemPadding = 80
+  const step = 100
+
+  const safeMaxX = Math.max(0, room.widthMm - size.widthMm)
+  const safeMaxZ = Math.max(0, room.depthMm - size.depthMm)
+  const safeMinX = Math.min(wallPadding, safeMaxX)
+  const safeMinZ = Math.min(wallPadding, safeMaxZ)
+
+  function collides(x: number, z: number, padding: number): boolean {
+    return items.some((item) => {
+      const otherSize = footprint(item)
+      return (
+        x < item.xMm + otherSize.widthMm + padding &&
+        x + size.widthMm + padding > item.xMm &&
+        z < item.zMm + otherSize.depthMm + padding &&
+        z + size.depthMm + padding > item.zMm
+      )
+    })
+  }
+
+  function inDoorZone(x: number, z: number): boolean {
+    if (!door) return false
+    const doorBuffer = 750
+    if (door.side === 'south') {
+      return z + size.depthMm > room.depthMm - doorBuffer && x + size.widthMm > door.offsetMm && x < door.offsetMm + door.widthMm
+    }
+    if (door.side === 'north') {
+      return z < doorBuffer && x + size.widthMm > door.offsetMm && x < door.offsetMm + door.widthMm
+    }
+    if (door.side === 'west') {
+      return x < doorBuffer && z + size.depthMm > door.offsetMm && z < door.offsetMm + door.widthMm
+    }
+    if (door.side === 'east') {
+      return x + size.widthMm > room.widthMm - doorBuffer && z + size.depthMm > door.offsetMm && z < door.offsetMm + door.widthMm
+    }
+    return false
+  }
+
+  // Pass 1: Comfortable clearance from other items and outside door swing area
+  for (let z = safeMinZ; z <= safeMaxZ; z += step) {
+    for (let x = safeMinX; x <= safeMaxX; x += step) {
+      if (!collides(x, z, itemPadding) && !inDoorZone(x, z)) {
+        return { xMm: x, zMm: z }
+      }
+    }
+  }
+
+  // Pass 2: Tighter clearance avoiding door area
+  for (let z = 0; z <= safeMaxZ; z += step) {
+    for (let x = 0; x <= safeMaxX; x += step) {
+      if (!collides(x, z, 20) && !inDoorZone(x, z)) {
+        return { xMm: x, zMm: z }
+      }
+    }
+  }
+
+  // Pass 3: Anywhere with zero collision
+  for (let z = 0; z <= safeMaxZ; z += step) {
+    for (let x = 0; x <= safeMaxX; x += step) {
+      if (!collides(x, z, 5)) {
+        return { xMm: x, zMm: z }
+      }
+    }
+  }
+
+  // Pass 4: Fallback - position with minimal overlap
+  let bestScore = Infinity
+  let bestPos = { xMm: Math.max(0, Math.min(200, safeMaxX)), zMm: Math.max(0, Math.min(200, safeMaxZ)) }
+
+  for (let z = 0; z <= safeMaxZ; z += step * 2) {
+    for (let x = 0; x <= safeMaxX; x += step * 2) {
+      let overlapArea = 0
+      for (const item of items) {
+        const otherSize = footprint(item)
+        const overlapW = Math.max(0, Math.min(x + size.widthMm, item.xMm + otherSize.widthMm) - Math.max(x, item.xMm))
+        const overlapD = Math.max(0, Math.min(z + size.depthMm, item.zMm + otherSize.depthMm) - Math.max(z, item.zMm))
+        overlapArea += overlapW * overlapD
+      }
+      if (overlapArea < bestScore) {
+        bestScore = overlapArea
+        bestPos = { xMm: x, zMm: z }
+        if (overlapArea === 0) return bestPos
+      }
+    }
+  }
+
+  return bestPos
+}

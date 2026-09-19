@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampDoor, clampItem, footprint, formatMeasurement, fromMillimeters, itemIssues, furnitureCatalog, positionFromWorld, toMillimeters, wallLength, type Furniture } from './model'
+import { clampDoor, clampItem, findEmptyPosition, footprint, formatMeasurement, fromMillimeters, itemIssues, furnitureCatalog, positionFromWorld, toMillimeters, wallLength, type Furniture, type Door } from './model'
 
 const bed: Furniture = { ...furnitureCatalog.bed, id: 'bed', xMm: 0, zMm: 0 }
 const room = { widthMm: 4000, depthMm: 3000, heightMm: 2800 }
@@ -64,5 +64,28 @@ describe('furniture geometry', () => {
       expect(item.depthMm).toBeGreaterThan(0)
       expect(item.heightMm).toBeGreaterThan(0)
     }
+  })
+
+  it('finds empty non-overlapping position when adding new furniture', () => {
+    const door: Door = { side: 'south', offsetMm: 400, widthMm: 900, heightMm: 2100 }
+    // First item
+    const pos1 = findEmptyPosition(furnitureCatalog.bed, [], room, door)
+    const item1: Furniture = { ...furnitureCatalog.bed, id: '1', ...pos1 }
+    expect(itemIssues(item1, [item1], room).outside).toBe(false)
+
+    // Second item must not overlap with first item
+    const pos2 = findEmptyPosition(furnitureCatalog.desk, [item1], room, door)
+    const item2: Furniture = { ...furnitureCatalog.desk, id: '2', ...pos2 }
+    expect(itemIssues(item2, [item1, item2], room)).toEqual({ outside: false, collision: false })
+
+    // Third item must not overlap with first and second
+    const pos3 = findEmptyPosition(furnitureCatalog.wardrobe, [item1, item2], room, door)
+    const item3: Furniture = { ...furnitureCatalog.wardrobe, id: '3', ...pos3 }
+    expect(itemIssues(item3, [item1, item2, item3], room)).toEqual({ outside: false, collision: false })
+
+    // Fourth item (accessories like nightstand)
+    const pos4 = findEmptyPosition(furnitureCatalog.nightstand, [item1, item2, item3], room, door)
+    const item4: Furniture = { ...furnitureCatalog.nightstand, id: '4', ...pos4 }
+    expect(itemIssues(item4, [item1, item2, item3, item4], room)).toEqual({ outside: false, collision: false })
   })
 })

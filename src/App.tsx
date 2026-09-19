@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
-import { clampDoor, clampItem, footprint, formatMeasurement, fromMillimeters, furnitureCatalog, itemIssues, toMillimeters, wallLength, type Door, type Furniture, type FurnitureKind, type MeasurementUnit, type Room, type WallSide, type WallVisibility } from './model'
+import { clampDoor, clampItem, findEmptyPosition, footprint, formatMeasurement, fromMillimeters, furnitureCatalog, itemIssues, toMillimeters, wallLength, type Door, type Furniture, type FurnitureKind, type MeasurementUnit, type Room, type WallSide, type WallVisibility } from './model'
 import { RoomCanvas } from './RoomCanvas'
 
 const defaultRoom: Room = { widthMm: 4000, depthMm: 3000, heightMm: 2800 }
@@ -99,7 +99,9 @@ export default function App() {
 
   function addItem(kind: FurnitureKind) {
     const id = crypto.randomUUID()
-    const item = clampItem({ ...furnitureCatalog[kind], id, xMm: 200, zMm: 200 }, room)
+    const template = furnitureCatalog[kind]
+    const pos = findEmptyPosition(template, items, room, door)
+    const item = clampItem({ ...template, id, xMm: pos.xMm, zMm: pos.zMm }, room)
     setItems((current) => [...current, item])
     setSelectedId(id)
   }
