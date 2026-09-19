@@ -32,6 +32,7 @@ export type Furniture = {
   zMm: number
   rotation: 0 | 90
   color: string
+  pillowPosition?: 'top' | 'bottom'
 }
 
 export const furnitureCatalog: Record<FurnitureKind, Omit<Furniture, 'id' | 'xMm' | 'zMm'>> = {
