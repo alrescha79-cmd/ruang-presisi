@@ -109,8 +109,8 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div><strong>RUANG PRESISI</strong><span>Editor interior 1:1</span></div>
-        <div className="status"><span>{items.length} objek</span><span>{formatMeasurement(room.widthMm, unit)} × {formatMeasurement(room.depthMm, unit)}</span><span className={issueCount || saveError ? 'warning' : ''}>{saveError ? 'Perubahan belum tersimpan' : issueCount ? `${issueCount} konflik` : 'Layout valid'}</span></div>
+        <div className="brand"><span className="brand-mark" aria-hidden="true" /><div><strong>RUANG PRESISI</strong><span>Studio tata ruang 1:1</span></div></div>
+        <div className="status"><span>{items.length} objek</span><span>{formatMeasurement(room.widthMm, unit)} × {formatMeasurement(room.depthMm, unit)}</span><span className={issueCount || saveError ? 'warning' : 'valid'}>{saveError ? 'Perubahan belum tersimpan' : issueCount ? `${issueCount} konflik` : 'Layout valid'}</span></div>
       </header>
 
       <aside className="panel room-panel" aria-label="Pengaturan kamar">
