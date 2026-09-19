@@ -166,7 +166,9 @@ function Scene({ room, items, door, walls, selectedId, onSelect, onMove }: Props
         onPointerUp={(event) => { event.stopPropagation(); (event.target as EventTarget & Element).releasePointerCapture(event.pointerId); setDraggedId(null) }}
         onPointerCancel={() => setDraggedId(null)}
       >
-        <FurnitureModel item={item} width={itemWidth} depth={itemDepth} invalid={issue.outside || issue.collision} />
+        <group rotation={[0, item.rotation === 90 ? Math.PI / 2 : 0, 0]}>
+          <FurnitureModel item={item} width={item.widthMm / 1000} depth={item.depthMm / 1000} invalid={issue.outside || issue.collision} />
+        </group>
         {selectedId === item.id && <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[itemWidth + 0.12, itemDepth + 0.12]} /><meshBasicMaterial color="#c78025" wireframe /></mesh>}
       </group>
     })}
