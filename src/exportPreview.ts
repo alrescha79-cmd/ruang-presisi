@@ -1,0 +1,582 @@
+import { footprint, formatMeasurement, itemIssues, type Door, type Furniture, type MeasurementUnit, type Room } from './model'
+
+function drawArrow(ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number, size = 12) {
+  const angle = Math.atan2(toY - fromY, toX - fromX)
+  ctx.beginPath()
+  ctx.moveTo(fromX, fromY)
+  ctx.lineTo(toX, toY)
+  ctx.stroke()
+
+  ctx.beginPath()
+  ctx.moveTo(toX, toY)
+  ctx.lineTo(toX - size * Math.cos(angle - Math.PI / 6), toY - size * Math.sin(angle - Math.PI / 6))
+  ctx.lineTo(toX - size * Math.cos(angle + Math.PI / 6), toY - size * Math.sin(angle + Math.PI / 6))
+  ctx.closePath()
+  ctx.fill()
+}
+
+function drawDimensionH(ctx: CanvasRenderingContext2D, x1: number, x2: number, y: number, extY1: number, extY2: number, text: string) {
+  ctx.save()
+  ctx.strokeStyle = '#73574b'
+  ctx.fillStyle = '#73574b'
+  ctx.lineWidth = 2.5
+
+  // Extension lines
+  ctx.beginPath()
+  ctx.moveTo(x1, extY1)
+  ctx.lineTo(x1, extY2)
+  ctx.moveTo(x2, extY1)
+  ctx.lineTo(x2, extY2)
+  ctx.stroke()
+
+  // Dimension line with double arrows
+  drawArrow(ctx, (x1 + x2) / 2, y, x1, y, 10)
+  drawArrow(ctx, (x1 + x2) / 2, y, x2, y, 10)
+
+  // Badge background for text
+  ctx.font = '600 24px "IBM Plex Mono", monospace'
+  const metrics = ctx.measureText(text)
+  const tw = metrics.width
+  ctx.fillStyle = '#f7f4ef'
+  ctx.fillRect((x1 + x2) / 2 - tw / 2 - 10, y - 16, tw + 20, 32)
+
+  // Text
+  ctx.fillStyle = '#3a231a'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, (x1 + x2) / 2, y)
+  ctx.restore()
+}
+
+function drawDimensionV(ctx: CanvasRenderingContext2D, y1: number, y2: number, x: number, extX1: number, extX2: number, text: string) {
+  ctx.save()
+  ctx.strokeStyle = '#73574b'
+  ctx.fillStyle = '#73574b'
+  ctx.lineWidth = 2.5
+
+  // Extension lines
+  ctx.beginPath()
+  ctx.moveTo(extX1, y1)
+  ctx.lineTo(extX2, y1)
+  ctx.moveTo(extX1, y2)
+  ctx.lineTo(extX2, y2)
+  ctx.stroke()
+
+  // Dimension line with double arrows
+  drawArrow(ctx, x, (y1 + y2) / 2, x, y1, 10)
+  drawArrow(ctx, x, (y1 + y2) / 2, x, y2, 10)
+
+  // Badge background
+  ctx.font = '600 24px "IBM Plex Mono", monospace'
+  const metrics = ctx.measureText(text)
+  const tw = metrics.width
+  ctx.fillStyle = '#f7f4ef'
+  ctx.fillRect(x - 16, (y1 + y2) / 2 - tw / 2 - 10, 32, tw + 20)
+
+  // Rotated vertical text
+  ctx.save()
+  ctx.translate(x, (y1 + y2) / 2)
+  ctx.rotate(-Math.PI / 2)
+  ctx.fillStyle = '#3a231a'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, 0, 0)
+  ctx.restore()
+
+  ctx.restore()
+}
+
+export function generateExportImage(
+  room: Room,
+  items: Furniture[],
+  door: Door,
+  unit: MeasurementUnit,
+  threeCanvas: HTMLCanvasElement | null
+): string {
+  const W = 2400
+  const H = 2400
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Cannot get 2D context')
+
+  // 1. Warm Architectural Sheet Background
+  ctx.fillStyle = '#f7f4ef'
+  ctx.fillRect(0, 0, W, H)
+
+  // Subtle architectural grid pattern
+  ctx.strokeStyle = '#ece6db'
+  ctx.lineWidth = 1
+  for (let x = 60; x < W - 60; x += 40) {
+    ctx.beginPath()
+    ctx.moveTo(x, 60)
+    ctx.lineTo(x, H - 60)
+    ctx.stroke()
+  }
+  for (let y = 60; y < H - 60; y += 40) {
+    ctx.beginPath()
+    ctx.moveTo(60, y)
+    ctx.lineTo(W - 60, y)
+    ctx.stroke()
+  }
+
+  // Outer border
+  ctx.strokeStyle = '#c5b59e'
+  ctx.lineWidth = 3
+  ctx.strokeRect(50, 50, W - 100, H - 100)
+  ctx.strokeRect(56, 56, W - 112, H - 112)
+
+  // 2. HEADER
+  const roomW_M = (room.widthMm / 1000).toFixed(1).replace('.0', '')
+  const roomD_M = (room.depthMm / 1000).toFixed(1).replace('.0', '')
+  const title = `Layout Kamar ${roomW_M} × ${roomD_M} Meter`
+
+  // Title badge
+  ctx.fillStyle = '#87321f'
+  ctx.fillRect(90, 85, 34, 46)
+  ctx.fillStyle = '#e8c48a'
+  ctx.fillRect(98, 93, 18, 30)
+
+  ctx.fillStyle = '#2f1911'
+  ctx.font = '700 56px "Newsreader", Georgia, serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(title, 140, 108)
+
+  // Tag on right
+  ctx.font = '700 18px "IBM Plex Mono", monospace'
+  ctx.fillStyle = '#87321f'
+  ctx.textAlign = 'right'
+  ctx.fillText('RUANG PRESISI  ·  STUDIO TATA RUANG INTERIOR 1:1', W - 90, 100)
+  ctx.font = '500 15px "IBM Plex Mono", monospace'
+  ctx.fillStyle = '#7a6659'
+  ctx.fillText(`DOKUMEN TEKNIS  |  ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, W - 90, 126)
+
+  // Subtitle: summary of key furniture sizes
+  const keySummary = items
+    .slice(0, 4)
+    .map((it) => `${it.name} ${Math.round(it.widthMm / 10)}×${Math.round(it.depthMm / 10)} cm`)
+    .join('   |   ')
+  ctx.fillStyle = '#6e5445'
+  ctx.font = '600 21px "DM Sans", sans-serif'
+  ctx.textAlign = 'left'
+  ctx.fillText(keySummary || 'Tata letak ruang interior presisi', 90, 160)
+
+  // Header separator line
+  ctx.strokeStyle = '#c5b59e'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(90, 185)
+  ctx.lineTo(W - 90, 185)
+  ctx.stroke()
+
+  // 3. UPPER LEFT: 2D ARCHITECTURAL FLOOR PLAN
+  const planBoxX = 90
+  const planBoxY = 220
+  const planBoxW = 1360
+  const planBoxH = 1260
+
+  // Floor plan panel frame
+  ctx.fillStyle = '#fffdfa'
+  ctx.fillRect(planBoxX, planBoxY, planBoxW, planBoxH)
+  ctx.strokeStyle = '#d6c8b4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(planBoxX, planBoxY, planBoxW, planBoxH)
+
+  // Plan section label
+  ctx.fillStyle = '#87321f'
+  ctx.font = '700 16px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('DENAH TATA RUANG & DIMENSI PRESISI (TAMPAK ATAS)', planBoxX + 24, planBoxY + 36)
+
+  // Calculate scaling for room inside plan area
+  const marginAround = 140
+  const maxRoomW = planBoxW - marginAround * 2
+  const maxRoomH = planBoxH - marginAround * 2
+  const scale = Math.min(maxRoomW / room.widthMm, maxRoomH / room.depthMm)
+  const drawW = room.widthMm * scale
+  const drawD = room.depthMm * scale
+  const rX = planBoxX + (planBoxW - drawW) / 2
+  const rY = planBoxY + 50 + (planBoxH - 50 - drawD) / 2
+
+  // Room floor
+  ctx.fillStyle = '#f3ede2'
+  ctx.fillRect(rX, rY, drawW, drawD)
+
+  // Subtle floor grid lines (every 50cm in room)
+  ctx.strokeStyle = '#e6ddd0'
+  ctx.lineWidth = 1
+  for (let xm = 500; xm < room.widthMm; xm += 500) {
+    ctx.beginPath()
+    ctx.moveTo(rX + xm * scale, rY)
+    ctx.lineTo(rX + xm * scale, rY + drawD)
+    ctx.stroke()
+  }
+  for (let zm = 500; zm < room.depthMm; zm += 500) {
+    ctx.beginPath()
+    ctx.moveTo(rX, rY + zm * scale)
+    ctx.lineTo(rX + drawW, rY + zm * scale)
+    ctx.stroke()
+  }
+
+  // Dimension Lines: Top (Room Width)
+  const roomWText = `${Math.round(room.widthMm / 10)} cm`
+  drawDimensionH(ctx, rX, rX + drawW, rY - 45, rY - 12, rY - 65, roomWText)
+
+  // Dimension Lines: Left (Room Depth)
+  const roomDText = `${Math.round(room.depthMm / 10)} cm`
+  drawDimensionV(ctx, rY, rY + drawD, rX - 45, rX - 12, rX - 65, roomDText)
+
+  // Door Opening & Swing Arc
+  const wallThick = 14
+  ctx.strokeStyle = '#43261a'
+  ctx.fillStyle = '#43261a'
+  ctx.lineWidth = wallThick
+
+  // Draw walls with gap for door
+  const dOffset = door.offsetMm * scale
+  const dWidth = door.widthMm * scale
+
+  if (door.side === 'south') {
+    // North wall
+    ctx.beginPath()
+    ctx.moveTo(rX - wallThick / 2, rY)
+    ctx.lineTo(rX + drawW + wallThick / 2, rY)
+    ctx.stroke()
+    // West wall
+    ctx.beginPath()
+    ctx.moveTo(rX, rY)
+    ctx.lineTo(rX, rY + drawD)
+    ctx.stroke()
+    // East wall
+    ctx.beginPath()
+    ctx.moveTo(rX + drawW, rY)
+    ctx.lineTo(rX + drawW, rY + drawD)
+    ctx.stroke()
+    // South wall segments around door
+    ctx.beginPath()
+    ctx.moveTo(rX - wallThick / 2, rY + drawD)
+    ctx.lineTo(rX + dOffset, rY + drawD)
+    ctx.moveTo(rX + dOffset + dWidth, rY + drawD)
+    ctx.lineTo(rX + drawW + wallThick / 2, rY + drawD)
+    ctx.stroke()
+
+    // Door swing arc
+    ctx.save()
+    ctx.strokeStyle = '#b08b68'
+    ctx.lineWidth = 2
+    ctx.setLineDash([5, 5])
+    ctx.beginPath()
+    ctx.arc(rX + dOffset, rY + drawD, dWidth, -Math.PI / 2, 0, false)
+    ctx.stroke()
+    // Door leaf
+    ctx.setLineDash([])
+    ctx.strokeStyle = '#87321f'
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    ctx.moveTo(rX + dOffset, rY + drawD)
+    ctx.lineTo(rX + dOffset, rY + drawD - dWidth)
+    ctx.stroke()
+    ctx.restore()
+  } else {
+    // Standard 4 walls fallback
+    ctx.strokeRect(rX, rY, drawW, drawD)
+  }
+
+  // Draw Furniture on Floor Plan
+  items.forEach((item) => {
+    const size = footprint(item)
+    const ix = rX + item.xMm * scale
+    const iz = rY + item.zMm * scale
+    const iw = size.widthMm * scale
+    const id = size.depthMm * scale
+
+    ctx.save()
+    // Furniture body
+    ctx.fillStyle = '#dfc8ad'
+    ctx.strokeStyle = '#4e2d1d'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.roundRect(ix, iz, iw, id, 6)
+    ctx.fill()
+    ctx.stroke()
+
+    // Inner detail based on kind
+    if (item.kind === 'bed') {
+      // Headboard & pillow mark
+      const pillowEnd = item.pillowPosition === 'bottom' ? 1 : -1
+      const pY = pillowEnd === -1 ? iz + 10 : iz + id - 36
+      ctx.fillStyle = '#f8f5ee'
+      ctx.strokeStyle = '#856149'
+      ctx.lineWidth = 1.5
+      // 2 pillows
+      const pW = iw * 0.38
+      ctx.strokeRect(ix + iw * 0.08, pY, pW, 26)
+      ctx.fillRect(ix + iw * 0.08, pY, pW, 26)
+      ctx.strokeRect(ix + iw * 0.54, pY, pW, 26)
+      ctx.fillRect(ix + iw * 0.54, pY, pW, 26)
+    } else if (item.kind === 'wardrobe') {
+      // Door division line
+      ctx.strokeStyle = '#6a4530'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(ix + iw / 2, iz)
+      ctx.lineTo(ix + iw / 2, iz + id)
+      ctx.stroke()
+    } else if (item.kind === 'shoe_rack') {
+      // Slats
+      ctx.strokeStyle = '#886249'
+      ctx.lineWidth = 1.5
+      for (let s = 1; s <= 3; s++) {
+        ctx.beginPath()
+        ctx.moveTo(ix, iz + (id / 4) * s)
+        ctx.lineTo(ix + iw, iz + (id / 4) * s)
+        ctx.stroke()
+      }
+    }
+
+    // Furniture Label in center
+    ctx.fillStyle = '#291811'
+    ctx.font = '700 20px "DM Sans", sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(item.name, ix + iw / 2, iz + id / 2 - 12)
+
+    // Furniture Dimension tag
+    ctx.font = '600 16px "IBM Plex Mono", monospace'
+    ctx.fillStyle = '#6d4c38'
+    ctx.fillText(`${Math.round(size.widthMm / 10)}×${Math.round(size.depthMm / 10)} cm`, ix + iw / 2, iz + id / 2 + 14)
+
+    ctx.restore()
+  })
+
+  // 4. UPPER RIGHT: SPECIFICATIONS & CIRCULATION NOTES
+  const specBoxX = 1480
+  const specBoxY = 220
+  const specBoxW = 830
+  const specBoxH = 1260
+
+  // Card 1: Circulation & Layout Highlights
+  ctx.fillStyle = '#fffdfa'
+  ctx.fillRect(specBoxX, specBoxY, specBoxW, 360)
+  ctx.strokeStyle = '#d6c8b4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(specBoxX, specBoxY, specBoxW, 360)
+
+  ctx.fillStyle = '#87321f'
+  ctx.font = '700 18px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('ANALISIS SIRKULASI & KELAYAKAN', specBoxX + 28, specBoxY + 40)
+
+  const conflicts = items.filter((item) => Object.values(itemIssues(item, items, room)).some(Boolean)).length
+  const areaM2 = ((room.widthMm * room.depthMm) / 1_000_000).toFixed(2)
+
+  const highlights = [
+    `Semua ${items.length} furnitur tertata presisi di kamar ${roomW_M} × ${roomD_M} m`,
+    `Luas total lantai: ${areaM2} m² (Plafon: ${(room.heightMm / 1000).toFixed(1)} m)`,
+    'Jalur sirkulasi gerak bebas dan nyaman dilewati',
+    conflicts === 0 ? 'Layout valid dan tidak ada tabrakan antar-objek' : `Peringatan: ${conflicts} objek saling beririsan`,
+  ]
+
+  highlights.forEach((hl, i) => {
+    const yPos = specBoxY + 86 + i * 62
+    // Checkmark bullet
+    ctx.fillStyle = i === 3 && conflicts > 0 ? '#b83b2f' : '#87321f'
+    ctx.beginPath()
+    ctx.arc(specBoxX + 42, yPos + 4, 11, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#fff'
+    ctx.font = '700 14px "DM Sans", sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('✓', specBoxX + 42, yPos + 4)
+
+    // Text
+    ctx.fillStyle = '#2f1911'
+    ctx.font = '600 20px "DM Sans", sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(hl, specBoxX + 68, yPos + 4)
+  })
+
+  // Card 2: Furniture Dimension Table
+  const specCard2Y = specBoxY + 390
+  const specCard2H = 480
+  ctx.fillStyle = '#fffdfa'
+  ctx.fillRect(specBoxX, specCard2Y, specBoxW, specCard2H)
+  ctx.strokeStyle = '#d6c8b4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(specBoxX, specCard2Y, specBoxW, specCard2H)
+
+  ctx.fillStyle = '#87321f'
+  ctx.font = '700 18px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('UKURAN FURNITUR & AKSESORIS', specBoxX + 28, specCard2Y + 40)
+
+  items.slice(0, 6).forEach((item, i) => {
+    const rowY = specCard2Y + 85 + i * 62
+    // Item number badge
+    ctx.fillStyle = '#f0e6d6'
+    ctx.fillRect(specBoxX + 28, rowY - 14, 38, 32)
+    ctx.fillStyle = '#7a422b'
+    ctx.font = '700 16px "IBM Plex Mono", monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(i + 1).padStart(2, '0'), specBoxX + 47, rowY + 2)
+
+    // Name
+    ctx.fillStyle = '#2b1912'
+    ctx.font = '700 21px "DM Sans", sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(item.name, specBoxX + 80, rowY + 2)
+
+    // Dimensions
+    ctx.fillStyle = '#7a513a'
+    ctx.font = '600 19px "IBM Plex Mono", monospace'
+    ctx.textAlign = 'right'
+    const dimText = `${Math.round(item.widthMm / 10)} × ${Math.round(item.depthMm / 10)} × ${Math.round(item.heightMm / 10)} cm`
+    ctx.fillText(dimText, specBoxX + specBoxW - 28, rowY + 2)
+
+    // Divider line
+    if (i < Math.min(items.length, 6) - 1) {
+      ctx.strokeStyle = '#ece3d6'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(specBoxX + 28, rowY + 26)
+      ctx.lineTo(specBoxX + specBoxW - 28, rowY + 26)
+      ctx.stroke()
+    }
+  })
+
+  // Card 3: Circulation Guidelines
+  const specCard3Y = specCard2Y + specCard2H + 30
+  const specCard3H = specBoxH - (390 + specCard2H + 30)
+  ctx.fillStyle = '#fffdfa'
+  ctx.fillRect(specBoxX, specCard3Y, specBoxW, specCard3H)
+  ctx.strokeStyle = '#d6c8b4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(specBoxX, specCard3Y, specBoxW, specCard3H)
+
+  ctx.fillStyle = '#87321f'
+  ctx.font = '700 18px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('STANDAR JARAK SIRKULASI', specBoxX + 28, specCard3Y + 38)
+
+  const circNotes = [
+    { label: '±60 cm', desc: 'Jarak minimum antara ranjang & furnitur pendamping' },
+    { label: '±90 cm', desc: 'Ruang gerak utama pintu & akses lemari pakaian' },
+    { label: '1:1 Skala', desc: 'Presisi ukuran dijamin akurat untuk eksekusi nyata' },
+  ]
+  circNotes.forEach((cn, i) => {
+    const cY = specCard3Y + 80 + i * 72
+    ctx.fillStyle = '#87321f'
+    ctx.font = '700 21px "IBM Plex Mono", monospace'
+    ctx.textAlign = 'left'
+    ctx.fillText(cn.label, specBoxX + 28, cY)
+
+    ctx.fillStyle = '#553f34'
+    ctx.font = '500 18px "DM Sans", sans-serif'
+    ctx.fillText(cn.desc, specBoxX + 160, cY)
+  })
+
+  // 5. BOTTOM SECTION: 3D REALISTIC PERSPECTIVE PREVIEW
+  const bottomY = 1520
+  const bottomH = 780
+
+  // 3D Canvas container card
+  const renderCardX = 90
+  const renderCardW = 1680
+  ctx.fillStyle = '#fffdfa'
+  ctx.fillRect(renderCardX, bottomY, renderCardW, bottomH)
+  ctx.strokeStyle = '#d6c8b4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(renderCardX, bottomY, renderCardW, bottomH)
+
+  ctx.fillStyle = '#87321f'
+  ctx.font = '700 18px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('TAMPAK PERSPEKTIF 3D REALISTIS (RENDER INTERIOR)', renderCardX + 28, bottomY + 38)
+
+  // Draw the Three.js 3D render inside
+  if (threeCanvas && threeCanvas.width > 0 && threeCanvas.height > 0) {
+    const imgAreaX = renderCardX + 24
+    const imgAreaY = bottomY + 58
+    const imgAreaW = renderCardW - 48
+    const imgAreaH = bottomH - 82
+
+    const srcRatio = threeCanvas.width / threeCanvas.height
+    const targetRatio = imgAreaW / imgAreaH
+    let dw = imgAreaW
+    let dh = imgAreaH
+    if (srcRatio > targetRatio) {
+      dh = imgAreaW / srcRatio
+    } else {
+      dw = imgAreaH * srcRatio
+    }
+    const dx = imgAreaX + (imgAreaW - dw) / 2
+    const dy = imgAreaY + (imgAreaH - dh) / 2
+
+    // Background behind image
+    ctx.fillStyle = '#dcd7cf'
+    ctx.fillRect(imgAreaX, imgAreaY, imgAreaW, imgAreaH)
+    ctx.drawImage(threeCanvas, dx, dy, dw, dh)
+    ctx.strokeStyle = '#b8a995'
+    ctx.lineWidth = 2
+    ctx.strokeRect(dx, dy, dw, dh)
+  }
+
+  // Bottom Right: Summary Card & Project Metadata
+  const statCardX = renderCardX + renderCardW + 30
+  const statCardW = W - 90 - statCardX
+  ctx.fillStyle = '#fffdfa'
+  ctx.fillRect(statCardX, bottomY, statCardW, bottomH)
+  ctx.strokeStyle = '#d6c8b4'
+  ctx.lineWidth = 2
+  ctx.strokeRect(statCardX, bottomY, statCardW, bottomH)
+
+  ctx.fillStyle = '#87321f'
+  ctx.font = '700 18px "IBM Plex Mono", monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('RINGKASAN PROYEK', statCardX + 28, bottomY + 38)
+
+  const metaRows = [
+    { label: 'DIMENSI RUANG', val: `${formatMeasurement(room.widthMm, unit)} × ${formatMeasurement(room.depthMm, unit)}` },
+    { label: 'LUAS LANTAI', val: `${areaM2} m²` },
+    { label: 'TINGGI RUANG', val: `${formatMeasurement(room.heightMm, unit)}` },
+    { label: 'LEBAR PINTU', val: `${door.widthMm / 10} cm (${door.side.toUpperCase()})` },
+    { label: 'TOTAL FURNITUR', val: `${items.length} Objek Terpasang` },
+    { label: 'STATUS TATA RUANG', val: conflicts === 0 ? 'VALID & OPTIMAL' : `${conflicts} KONFLIK` },
+  ]
+
+  metaRows.forEach((row, i) => {
+    const ry = bottomY + 85 + i * 86
+    ctx.fillStyle = '#8f7768'
+    ctx.font = '700 13px "IBM Plex Mono", monospace'
+    ctx.fillText(row.label, statCardX + 28, ry)
+
+    ctx.fillStyle = row.label === 'STATUS TATA RUANG' && conflicts > 0 ? '#b83b2f' : '#291811'
+    ctx.font = '700 22px "DM Sans", sans-serif'
+    ctx.fillText(row.val, statCardX + 28, ry + 28)
+
+    if (i < metaRows.length - 1) {
+      ctx.strokeStyle = '#ece3d6'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(statCardX + 28, ry + 46)
+      ctx.lineTo(statCardX + statCardW - 28, ry + 46)
+      ctx.stroke()
+    }
+  })
+
+  // Footer stamp inside statCard
+  ctx.fillStyle = '#87321f'
+  ctx.fillRect(statCardX + 28, bottomY + bottomH - 120, statCardW - 56, 4)
+  ctx.fillStyle = '#654e41'
+  ctx.font = '600 16px "DM Sans", sans-serif'
+  ctx.fillText('Ruang Presisi 3D Simulator', statCardX + 28, bottomY + bottomH - 85)
+  ctx.font = '500 13px "IBM Plex Mono", monospace'
+  ctx.fillStyle = '#9c8879'
+  ctx.fillText('Dokumen layout siap produksi & cetak', statCardX + 28, bottomY + bottomH - 58)
+
+  return canvas.toDataURL('image/png')
+}

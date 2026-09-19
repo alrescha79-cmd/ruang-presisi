@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
+import { generateExportImage } from './exportPreview'
 import { clampDoor, clampItem, findEmptyPosition, footprint, formatMeasurement, fromMillimeters, furnitureCatalog, itemIssues, toMillimeters, wallLength, type Door, type Furniture, type FurnitureKind, type MeasurementUnit, type Room, type WallSide, type WallVisibility } from './model'
 import { RoomCanvas } from './RoomCanvas'
 
@@ -121,75 +122,15 @@ export default function App() {
   }
 
   function exportLayout() {
-    const source = canvasRef.current
-    if (!source) return setExportStatus('Pratinjau belum siap diekspor.')
     try {
-      const output = document.createElement('canvas')
-      output.width = 2400
-      output.height = Math.max(1600, 720 + items.length * 112)
-      const context = output.getContext('2d')
-      if (!context) throw new Error()
-      context.fillStyle = '#101820'
-      context.fillRect(0, 0, output.width, output.height)
-      context.fillStyle = '#19c3c8'
-      context.fillRect(0, 0, 18, output.height)
-      context.fillStyle = '#f4f7f8'
-      context.font = '700 64px DM Sans, sans-serif'
-      context.fillText('RUANG PRESISI', 90, 110)
-      context.fillStyle = '#8fa8b3'
-      context.font = '500 24px IBM Plex Mono, monospace'
-      context.fillText('DOKUMEN LAYOUT INTERIOR', 92, 154)
-      context.fillStyle = '#16232c'
-      context.fillRect(90, 210, 1580, 1220)
-      const imageRatio = source.width / source.height
-      const frameRatio = 1500 / 1140
-      const drawWidth = imageRatio > frameRatio ? 1500 : 1140 * imageRatio
-      const drawHeight = imageRatio > frameRatio ? 1500 / imageRatio : 1140
-      context.drawImage(source, 130 + (1500 - drawWidth) / 2, 250 + (1140 - drawHeight) / 2, drawWidth, drawHeight)
-      context.strokeStyle = '#2b4753'
-      context.lineWidth = 3
-      context.strokeRect(90, 210, 1580, 1220)
-      context.fillStyle = '#16232c'
-      context.fillRect(1720, 210, 590, output.height - 380)
-      context.fillStyle = '#19c3c8'
-      context.font = '600 22px IBM Plex Mono, monospace'
-      context.fillText('SPESIFIKASI RUANG', 1780, 280)
-      context.fillStyle = '#f4f7f8'
-      context.font = '700 44px DM Sans, sans-serif'
-      context.fillText(`${formatMeasurement(room.widthMm, unit)} × ${formatMeasurement(room.depthMm, unit)}`, 1780, 345)
-      context.fillStyle = '#8fa8b3'
-      context.font = '500 24px DM Sans, sans-serif'
-      context.fillText(`Tinggi ${formatMeasurement(room.heightMm, unit)}`, 1780, 390)
-      context.strokeStyle = '#2b4753'
-      context.beginPath()
-      context.moveTo(1780, 440)
-      context.lineTo(2250, 440)
-      context.stroke()
-      context.fillStyle = '#19c3c8'
-      context.font = '600 22px IBM Plex Mono, monospace'
-      context.fillText('DAFTAR FURNITUR', 1780, 500)
-      context.font = '600 25px DM Sans, sans-serif'
-      items.forEach((item, index) => {
-        const y = 565 + index * 112
-        context.fillStyle = '#f4f7f8'
-        context.fillText(`${String(index + 1).padStart(2, '0')}  ${item.name}`, 1780, y)
-        context.fillStyle = '#8fa8b3'
-        context.font = '500 20px IBM Plex Mono, monospace'
-        context.fillText(`${formatMeasurement(item.widthMm, unit)} × ${formatMeasurement(item.depthMm, unit)} × ${formatMeasurement(item.heightMm, unit)}`, 1825, y + 36)
-        context.font = '600 25px DM Sans, sans-serif'
-      })
-      const conflicts = items.filter((item) => Object.values(itemIssues(item, items, room)).some(Boolean)).length
-      context.fillStyle = conflicts ? '#ffb36b' : '#19c3c8'
-      context.font = '700 24px DM Sans, sans-serif'
-      context.fillText(conflicts ? `${conflicts} konflik perlu diperiksa` : 'LAYOUT VALID', 1780, output.height - 240)
-      context.fillStyle = '#667e89'
-      context.font = '500 18px IBM Plex Mono, monospace'
-      context.fillText('Skala dimensi berdasarkan data proyek', 90, output.height - 85)
+      const dataUrl = generateExportImage(room, items, door, unit, canvasRef.current)
+      const roomW = (room.widthMm / 1000).toFixed(1)
+      const roomD = (room.depthMm / 1000).toFixed(1)
       const link = document.createElement('a')
-      link.download = `ruang-presisi-${new Date().toISOString().slice(0, 10)}.png`
-      link.href = output.toDataURL('image/png')
+      link.download = `layout-presisi-${roomW}x${roomD}m-${new Date().toISOString().slice(0, 10)}.png`
+      link.href = dataUrl
       link.click()
-      setExportStatus('Gambar layout berhasil diekspor.')
+      setExportStatus('Gambar presentasi layout profesional berhasil diekspor.')
     } catch {
       setExportStatus('Ekspor gagal. Coba muat ulang halaman.')
     }
