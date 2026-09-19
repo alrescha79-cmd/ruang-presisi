@@ -19,7 +19,12 @@ describe('measurement units', () => {
 
 describe('furniture geometry', () => {
   it('swaps footprint dimensions after rotation', () => {
+    expect(footprint({ ...bed, rotation: 0 })).toEqual({ widthMm: 1600, depthMm: 2000 })
     expect(footprint({ ...bed, rotation: 90 })).toEqual({ widthMm: 2000, depthMm: 1600 })
+    expect(footprint({ ...bed, rotation: 180 })).toEqual({ widthMm: 1600, depthMm: 2000 })
+    expect(footprint({ ...bed, rotation: 270 })).toEqual({ widthMm: 2000, depthMm: 1600 })
+    expect(footprint({ ...bed, rotation: 360 })).toEqual({ widthMm: 1600, depthMm: 2000 })
+    expect(footprint({ ...bed, rotation: -90 })).toEqual({ widthMm: 2000, depthMm: 1600 })
   })
 
   it('detects collisions and room boundaries', () => {

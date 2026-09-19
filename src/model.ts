@@ -40,7 +40,7 @@ export type Furniture = {
   heightMm: number
   xMm: number
   zMm: number
-  rotation: 0 | 90
+  rotation: number
   color: string
   pillowPosition?: 'top' | 'bottom'
 }
@@ -73,10 +73,26 @@ export function clampDoor(door: Door, room: Room): Door {
   }
 }
 
+export function normalizeRotation(deg: number) {
+  const mod = Math.round(deg) % 360
+  return mod < 0 ? mod + 360 : mod
+}
+
 export function footprint(item: Furniture) {
-  return item.rotation === 90
-    ? { widthMm: item.depthMm, depthMm: item.widthMm }
-    : { widthMm: item.widthMm, depthMm: item.depthMm }
+  const rot = normalizeRotation(item.rotation ?? 0)
+  if (rot === 90 || rot === 270) {
+    return { widthMm: item.depthMm, depthMm: item.widthMm }
+  }
+  if (rot === 0 || rot === 180) {
+    return { widthMm: item.widthMm, depthMm: item.depthMm }
+  }
+  const rad = (rot * Math.PI) / 180
+  const cos = Math.abs(Math.cos(rad))
+  const sin = Math.abs(Math.sin(rad))
+  return {
+    widthMm: Math.round(item.widthMm * cos + item.depthMm * sin),
+    depthMm: Math.round(item.widthMm * sin + item.depthMm * cos),
+  }
 }
 
 export function itemIssues(item: Furniture, items: Furniture[], room: Room) {
