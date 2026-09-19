@@ -22,6 +22,11 @@ const darkWood = '#41271a'
 const fabric = '#ddd5c8'
 const cane = '#ba9768'
 const brass = '#b78a3d'
+const porcelain = '#ece7df'
+const leafGreen = '#385e32'
+const flowerPetal = '#c24836'
+const leather = '#3c281e'
+const bookColors = ['#873926', '#314b5c', '#475e3a', '#c29241', '#e8dfcc']
 
 type WallSegment = { length: number; center: number; height: number; y: number }
 
@@ -113,13 +118,203 @@ function Chair({ width, depth, height }: { width: number; depth: number; height:
   </>
 }
 
+function Nightstand({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const leg = Math.min(0.045, width * 0.1)
+  const topThick = 0.03
+  const drawerHeight = height * 0.42
+  const shelfY = height * 0.18
+  return <>
+    {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => (
+      <Box key={index} size={[leg, height - topThick, leg]} position={[x * (width / 2 - leg / 2), (height - topThick) / 2, z * (depth / 2 - leg / 2)]} color={darkWood} />
+    ))}
+    <Box size={[width, topThick, depth]} position={[0, height - topThick / 2, 0]} color={wood} />
+    <Box size={[width * 0.9, drawerHeight, depth * 0.9]} position={[0, height - topThick - drawerHeight / 2, 0]} color="#755038" />
+    <Box size={[width * 0.84, drawerHeight * 0.85, 0.02]} position={[0, height - topThick - drawerHeight / 2, depth * 0.46]} color={wood} />
+    <mesh castShadow position={[0, height - topThick - drawerHeight / 2, depth * 0.48]}>
+      <sphereGeometry args={[0.015, 12, 8]} />
+      <meshStandardMaterial color={brass} metalness={0.8} roughness={0.25} />
+    </mesh>
+    <Box size={[width * 0.88, 0.02, depth * 0.88]} position={[0, shelfY, 0]} color={wood} />
+  </>
+}
+
+function ShoeRack({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const leg = Math.min(0.045, width * 0.06)
+  const tierCount = 3
+  const tierSpacing = (height - 0.05) / (tierCount - 1)
+  return <>
+    {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => (
+      <Box key={index} size={[leg, height, leg]} position={[x * (width / 2 - leg / 2), height / 2, z * (depth / 2 - leg / 2)]} color={darkWood} />
+    ))}
+    <Box size={[width, 0.025, depth]} position={[0, height - 0.0125, 0]} color={wood} />
+    {[0, 1].map((tier) => {
+      const y = 0.08 + tier * tierSpacing
+      return (
+        <group key={tier}>
+          {[-0.35, -0.12, 0.12, 0.35].map((slatZ) => (
+            <Box key={slatZ} size={[width * 0.94, 0.015, depth * 0.15]} position={[0, y, slatZ * depth]} color={wood} />
+          ))}
+        </group>
+      )
+    })}
+    {[-0.22, 0.22].map((x) => (
+      <group key={x} position={[x * width, 0.08 + tierSpacing + 0.025, 0]}>
+        <Box size={[width * 0.11, 0.035, depth * 0.55]} position={[-width * 0.065, 0, 0]} color={leather} roughness={0.85} />
+        <Box size={[width * 0.11, 0.035, depth * 0.55]} position={[width * 0.065, 0, 0]} color={leather} roughness={0.85} />
+      </group>
+    ))}
+  </>
+}
+
+function CoatRack({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const poleRadius = Math.min(0.032, width * 0.07)
+  return <>
+    <Box size={[width * 0.88, 0.04, width * 0.14]} position={[0, 0.02, 0]} color={darkWood} />
+    <Box size={[width * 0.14, 0.04, depth * 0.88]} position={[0, 0.02, 0]} color={darkWood} />
+    <mesh castShadow position={[0, height * 0.48, 0]}>
+      <cylinderGeometry args={[poleRadius, poleRadius * 1.25, height * 0.94, 16]} />
+      <meshStandardMaterial color={darkWood} roughness={0.7} />
+    </mesh>
+    <mesh castShadow position={[0, height * 0.965, 0]}>
+      <sphereGeometry args={[poleRadius * 1.4, 16, 12]} />
+      <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
+    </mesh>
+    {[[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0]].map(([dx, , dz], i) => (
+      <group key={i} position={[dx * width * 0.18, height * 0.86, dz * depth * 0.18]}>
+        <Box size={[dx !== 0 ? width * 0.22 : 0.025, 0.025, dz !== 0 ? depth * 0.22 : 0.025]} position={[0, 0, 0]} color={wood} />
+        <mesh castShadow position={[dx * 0.04, 0.025, dz * 0.04]}>
+          <sphereGeometry args={[0.02, 10, 8]} />
+          <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
+        </mesh>
+      </group>
+    ))}
+    {[[0.7, 0, 0.7], [-0.7, 0, 0.7], [-0.7, 0, -0.7], [0.7, 0, -0.7]].map(([dx, , dz], i) => (
+      <group key={`mid-${i}`} position={[dx * width * 0.14, height * 0.65, dz * depth * 0.14]}>
+        <Box size={[0.022, 0.022, 0.022]} position={[0, 0, 0]} color={wood} />
+        <mesh castShadow position={[dx * 0.03, 0.02, dz * 0.03]}>
+          <sphereGeometry args={[0.016, 10, 8]} />
+          <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
+        </mesh>
+      </group>
+    ))}
+  </>
+}
+
+function FlowerVase({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const tableHeight = height * 0.58
+  const leg = Math.min(0.04, width * 0.08)
+  const vaseHeight = height * 0.28
+  return <>
+    {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => (
+      <Box key={index} size={[leg, tableHeight, leg]} position={[x * (width / 2 - leg / 2), tableHeight / 2, z * (depth / 2 - leg / 2)]} color={darkWood} />
+    ))}
+    <Box size={[width * 0.85, 0.02, 0.02]} position={[0, tableHeight * 0.25, 0]} color={darkWood} />
+    <Box size={[0.02, 0.02, depth * 0.85]} position={[0, tableHeight * 0.25, 0]} color={darkWood} />
+    <Box size={[width * 0.95, 0.03, depth * 0.95]} position={[0, tableHeight + 0.015, 0]} color={wood} />
+    <mesh castShadow position={[0, tableHeight + 0.03 + vaseHeight * 0.42, 0]}>
+      <cylinderGeometry args={[width * 0.14, width * 0.22, vaseHeight * 0.84, 16]} />
+      <meshStandardMaterial color={porcelain} roughness={0.25} metalness={0.08} />
+    </mesh>
+    <mesh castShadow position={[0, tableHeight + 0.03 + vaseHeight * 0.9, 0]}>
+      <cylinderGeometry args={[width * 0.09, width * 0.12, vaseHeight * 0.24, 16]} />
+      <meshStandardMaterial color={porcelain} roughness={0.25} metalness={0.08} />
+    </mesh>
+    {[-0.12, 0, 0.12].map((ox, i) => (
+      <mesh key={i} castShadow position={[ox * width, tableHeight + 0.03 + vaseHeight + 0.06, (i % 2 === 0 ? 0.05 : -0.05) * depth]}>
+        <sphereGeometry args={[width * 0.12, 8, 8]} />
+        <meshStandardMaterial color={leafGreen} roughness={0.8} />
+      </mesh>
+    ))}
+    {[-0.08, 0.08].map((ox, i) => (
+      <mesh key={i} castShadow position={[ox * width, tableHeight + 0.03 + vaseHeight + 0.13, 0]}>
+        <sphereGeometry args={[width * 0.06, 12, 8]} />
+        <meshStandardMaterial color={flowerPetal} roughness={0.65} />
+      </mesh>
+    ))}
+  </>
+}
+
+function FloorLamp({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const size = Math.min(width, depth)
+  const baseRadius = size * 0.38
+  const shadeRadius = size * 0.38
+  const shadeHeight = height * 0.22
+  const poleRadius = 0.016
+  return <>
+    <mesh castShadow receiveShadow position={[0, 0.025, 0]}>
+      <cylinderGeometry args={[baseRadius, baseRadius * 1.05, 0.05, 24]} />
+      <meshStandardMaterial color={darkWood} roughness={0.65} />
+    </mesh>
+    <mesh castShadow position={[0, 0.055, 0]}>
+      <cylinderGeometry args={[baseRadius * 0.5, baseRadius * 0.6, 0.015, 24]} />
+      <meshStandardMaterial color={brass} metalness={0.85} roughness={0.25} />
+    </mesh>
+    <mesh castShadow position={[0, height * 0.45, 0]}>
+      <cylinderGeometry args={[poleRadius, poleRadius, height * 0.82, 16]} />
+      <meshStandardMaterial color={brass} metalness={0.85} roughness={0.25} />
+    </mesh>
+    <mesh castShadow position={[0, height * 0.86, 0]}>
+      <cylinderGeometry args={[shadeRadius * 0.85, shadeRadius, shadeHeight, 24, 1, true]} />
+      <meshStandardMaterial color="#faf2e3" roughness={0.95} side={2} />
+    </mesh>
+    <mesh position={[0, height * 0.86, 0]}>
+      <sphereGeometry args={[0.045, 16, 12]} />
+      <meshStandardMaterial color="#fff4df" emissive="#ffc46b" emissiveIntensity={1.4} roughness={0.2} />
+    </mesh>
+  </>
+}
+
+function Bookshelf({ width, depth, height }: { width: number; depth: number; height: number }) {
+  const sideThick = 0.035
+  const shelfThick = 0.025
+  const shelves = 4
+  const shelfStep = (height - shelfThick) / (shelves + 1)
+  const innerWidth = width - sideThick * 2
+  return <>
+    <Box size={[sideThick, height, depth]} position={[-width / 2 + sideThick / 2, height / 2, 0]} color={darkWood} />
+    <Box size={[sideThick, height, depth]} position={[width / 2 - sideThick / 2, height / 2, 0]} color={darkWood} />
+    <Box size={[width, sideThick, depth]} position={[0, height - sideThick / 2, 0]} color={darkWood} />
+    <Box size={[width, sideThick * 1.5, depth]} position={[0, sideThick * 0.75, 0]} color={darkWood} />
+    <Box size={[innerWidth, height - sideThick * 2, 0.015]} position={[0, height / 2, -depth / 2 + 0.01]} color="#563420" />
+    {[1, 2, 3, 4].map((level) => {
+      const y = level * shelfStep
+      return (
+        <group key={level}>
+          <Box size={[innerWidth, shelfThick, depth * 0.95]} position={[0, y, 0]} color={wood} />
+          {[-0.28, -0.15, -0.03, 0.1, 0.22].map((bx, bIdx) => {
+            const bWidth = 0.04 + (bIdx % 3) * 0.015
+            const bHeight = 0.16 + (bIdx % 4) * 0.03
+            const bColor = bookColors[(level + bIdx) % bookColors.length]
+            return (
+              <Box
+                key={bIdx}
+                size={[bWidth, bHeight, depth * 0.65]}
+                position={[bx * innerWidth, y + shelfThick / 2 + bHeight / 2, 0.02]}
+                color={bColor}
+                roughness={0.8}
+              />
+            )
+          })}
+        </group>
+      )
+    })}
+  </>
+}
+
 function FurnitureModel({ item, width, depth, invalid }: { item: Furniture; width: number; depth: number; invalid: boolean }) {
   if (invalid) return <Box size={[width, item.heightMm / 1000, depth]} position={[0, item.heightMm / 2000, 0]} color="#b33b2e" />
   const height = item.heightMm / 1000
   if (item.kind === 'bed') return <Bed width={width} depth={depth} height={height} pillowPosition={item.pillowPosition ?? 'top'} />
   if (item.kind === 'wardrobe') return <Wardrobe width={width} depth={depth} height={height} />
   if (item.kind === 'desk') return <Desk width={width} depth={depth} height={height} />
-  return <Chair width={width} depth={depth} height={height} />
+  if (item.kind === 'chair') return <Chair width={width} depth={depth} height={height} />
+  if (item.kind === 'nightstand') return <Nightstand width={width} depth={depth} height={height} />
+  if (item.kind === 'shoe_rack') return <ShoeRack width={width} depth={depth} height={height} />
+  if (item.kind === 'coat_rack') return <CoatRack width={width} depth={depth} height={height} />
+  if (item.kind === 'flower_vase') return <FlowerVase width={width} depth={depth} height={height} />
+  if (item.kind === 'floor_lamp') return <FloorLamp width={width} depth={depth} height={height} />
+  if (item.kind === 'bookshelf') return <Bookshelf width={width} depth={depth} height={height} />
+  return <Box size={[width, height, depth]} position={[0, height / 2, 0]} color={item.color} />
 }
 
 function Scene({ room, items, door, walls, selectedId, onSelect, onMove }: Props) {
