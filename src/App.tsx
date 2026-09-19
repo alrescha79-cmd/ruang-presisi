@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
-import { clampDoor, clampItem, footprint, formatMeasurement, fromMillimeters, furnitureCatalog, itemIssues, toMillimeters, wallLength, type Door, type Furniture, type FurnitureKind, type MeasurementUnit, type Room, type WallSide, type WallVisibility } from './model'
+import { generateExportImage } from './exportPreview'
+import { clampDoor, clampItem, findEmptyPosition, footprint, formatMeasurement, fromMillimeters, furnitureCatalog, itemIssues, toMillimeters, wallLength, type Door, type Furniture, type FurnitureKind, type MeasurementUnit, type Room, type WallSide, type WallVisibility } from './model'
 import { RoomCanvas } from './RoomCanvas'
 
 const defaultRoom: Room = { widthMm: 4000, depthMm: 3000, heightMm: 2800 }
@@ -8,6 +9,17 @@ const defaultDoor: Door = { side: 'south', offsetMm: 400, widthMm: 900, heightMm
 const defaultWalls: WallVisibility = { north: true, east: true, south: true, west: true }
 const wallLabels: Record<WallSide, string> = { north: 'Utara', east: 'Timur', south: 'Selatan', west: 'Barat' }
 const storageKey = 'ruang-presisi-project'
+
+const furnitureGroups: { title: string; kinds: FurnitureKind[] }[] = [
+  {
+    title: 'Furnitur Utama',
+    kinds: ['bed', 'wardrobe', 'desk', 'chair', 'bookshelf'],
+  },
+  {
+    title: 'Aksesoris & Dekorasi',
+    kinds: ['nightstand', 'shoe_rack', 'coat_rack', 'flower_vase', 'floor_lamp'],
+  },
+]
 
 type SavedProject = { room: Room; items: Furniture[]; door: Door; walls: WallVisibility }
 
@@ -23,7 +35,7 @@ function loadProject(): SavedProject {
     if (validRoom.widthMm < 2000 || validRoom.widthMm > 12000 || validRoom.depthMm < 2000 || validRoom.depthMm > 12000 || validRoom.heightMm < 2000 || validRoom.heightMm > 5000) throw new Error()
     const ids = new Set<string>()
     const items = value.items as Furniture[]
-    if (!items.every((item) => item && typeof item.id === 'string' && !ids.has(item.id) && ids.add(item.id) && typeof item.name === 'string' && typeof item.color === 'string' && [item.widthMm, item.depthMm, item.heightMm, item.xMm, item.zMm].every(Number.isFinite) && item.widthMm > 0 && item.depthMm > 0 && item.heightMm > 0 && (item.rotation === 0 || item.rotation === 90) && (item.pillowPosition === undefined || item.pillowPosition === 'top' || item.pillowPosition === 'bottom'))) throw new Error()
+    if (!items.every((item) => item && typeof item.id === 'string' && !ids.has(item.id) && ids.add(item.id) && typeof item.name === 'string' && typeof item.color === 'string' && [item.widthMm, item.depthMm, item.heightMm, item.xMm, item.zMm].every(Number.isFinite) && item.widthMm > 0 && item.depthMm > 0 && item.heightMm > 0 && typeof item.rotation === 'number' && Number.isFinite(item.rotation) && (item.pillowPosition === undefined || item.pillowPosition === 'top' || item.pillowPosition === 'bottom'))) throw new Error()
     const sides: WallSide[] = ['north', 'east', 'south', 'west']
     const rawDoor = 'door' in value ? value.door as Door : defaultDoor
     const door = rawDoor && sides.includes(rawDoor.side) && [rawDoor.offsetMm, rawDoor.widthMm, rawDoor.heightMm].every(Number.isFinite) ? clampDoor(rawDoor, validRoom) : defaultDoor
@@ -88,7 +100,9 @@ export default function App() {
 
   function addItem(kind: FurnitureKind) {
     const id = crypto.randomUUID()
-    const item = clampItem({ ...furnitureCatalog[kind], id, xMm: 200, zMm: 200 }, room)
+    const template = furnitureCatalog[kind]
+    const pos = findEmptyPosition(template, items, room, door)
+    const item = clampItem({ ...template, id, xMm: pos.xMm, zMm: pos.zMm }, room)
     setItems((current) => [...current, item])
     setSelectedId(id)
   }
@@ -108,75 +122,15 @@ export default function App() {
   }
 
   function exportLayout() {
-    const source = canvasRef.current
-    if (!source) return setExportStatus('Pratinjau belum siap diekspor.')
     try {
-      const output = document.createElement('canvas')
-      output.width = 2400
-      output.height = Math.max(1600, 720 + items.length * 112)
-      const context = output.getContext('2d')
-      if (!context) throw new Error()
-      context.fillStyle = '#101820'
-      context.fillRect(0, 0, output.width, output.height)
-      context.fillStyle = '#19c3c8'
-      context.fillRect(0, 0, 18, output.height)
-      context.fillStyle = '#f4f7f8'
-      context.font = '700 64px DM Sans, sans-serif'
-      context.fillText('RUANG PRESISI', 90, 110)
-      context.fillStyle = '#8fa8b3'
-      context.font = '500 24px IBM Plex Mono, monospace'
-      context.fillText('DOKUMEN LAYOUT INTERIOR', 92, 154)
-      context.fillStyle = '#16232c'
-      context.fillRect(90, 210, 1580, 1220)
-      const imageRatio = source.width / source.height
-      const frameRatio = 1500 / 1140
-      const drawWidth = imageRatio > frameRatio ? 1500 : 1140 * imageRatio
-      const drawHeight = imageRatio > frameRatio ? 1500 / imageRatio : 1140
-      context.drawImage(source, 130 + (1500 - drawWidth) / 2, 250 + (1140 - drawHeight) / 2, drawWidth, drawHeight)
-      context.strokeStyle = '#2b4753'
-      context.lineWidth = 3
-      context.strokeRect(90, 210, 1580, 1220)
-      context.fillStyle = '#16232c'
-      context.fillRect(1720, 210, 590, output.height - 380)
-      context.fillStyle = '#19c3c8'
-      context.font = '600 22px IBM Plex Mono, monospace'
-      context.fillText('SPESIFIKASI RUANG', 1780, 280)
-      context.fillStyle = '#f4f7f8'
-      context.font = '700 44px DM Sans, sans-serif'
-      context.fillText(`${formatMeasurement(room.widthMm, unit)} × ${formatMeasurement(room.depthMm, unit)}`, 1780, 345)
-      context.fillStyle = '#8fa8b3'
-      context.font = '500 24px DM Sans, sans-serif'
-      context.fillText(`Tinggi ${formatMeasurement(room.heightMm, unit)}`, 1780, 390)
-      context.strokeStyle = '#2b4753'
-      context.beginPath()
-      context.moveTo(1780, 440)
-      context.lineTo(2250, 440)
-      context.stroke()
-      context.fillStyle = '#19c3c8'
-      context.font = '600 22px IBM Plex Mono, monospace'
-      context.fillText('DAFTAR FURNITUR', 1780, 500)
-      context.font = '600 25px DM Sans, sans-serif'
-      items.forEach((item, index) => {
-        const y = 565 + index * 112
-        context.fillStyle = '#f4f7f8'
-        context.fillText(`${String(index + 1).padStart(2, '0')}  ${item.name}`, 1780, y)
-        context.fillStyle = '#8fa8b3'
-        context.font = '500 20px IBM Plex Mono, monospace'
-        context.fillText(`${formatMeasurement(item.widthMm, unit)} × ${formatMeasurement(item.depthMm, unit)} × ${formatMeasurement(item.heightMm, unit)}`, 1825, y + 36)
-        context.font = '600 25px DM Sans, sans-serif'
-      })
-      const conflicts = items.filter((item) => Object.values(itemIssues(item, items, room)).some(Boolean)).length
-      context.fillStyle = conflicts ? '#ffb36b' : '#19c3c8'
-      context.font = '700 24px DM Sans, sans-serif'
-      context.fillText(conflicts ? `${conflicts} konflik perlu diperiksa` : 'LAYOUT VALID', 1780, output.height - 240)
-      context.fillStyle = '#667e89'
-      context.font = '500 18px IBM Plex Mono, monospace'
-      context.fillText('Skala dimensi berdasarkan data proyek', 90, output.height - 85)
+      const dataUrl = generateExportImage(room, items, door, unit, canvasRef.current)
+      const roomW = (room.widthMm / 1000).toFixed(1)
+      const roomD = (room.depthMm / 1000).toFixed(1)
       const link = document.createElement('a')
-      link.download = `ruang-presisi-${new Date().toISOString().slice(0, 10)}.png`
-      link.href = output.toDataURL('image/png')
+      link.download = `layout-presisi-${roomW}x${roomD}m-${new Date().toISOString().slice(0, 10)}.png`
+      link.href = dataUrl
       link.click()
-      setExportStatus('Gambar layout berhasil diekspor.')
+      setExportStatus('Gambar presentasi layout profesional berhasil diekspor.')
     } catch {
       setExportStatus('Ekspor gagal. Coba muat ulang halaman.')
     }
@@ -212,10 +166,20 @@ export default function App() {
           <div className="wall-toggles">{(Object.keys(wallLabels) as WallSide[]).map((side) => <label key={side}><input type="checkbox" checked={walls[side]} onChange={(event) => setWalls({ ...walls, [side]: event.target.checked })} /> <span>{wallLabels[side]}</span></label>)}</div>
         </section>
         <section>
-          <h2>Tambah furnitur</h2>
-          <div className="asset-list">
-            {(Object.keys(furnitureCatalog) as FurnitureKind[]).map((kind) => <button key={kind} onClick={() => addItem(kind)}><span>{furnitureCatalog[kind].name}</span><small>{formatMeasurement(furnitureCatalog[kind].widthMm, unit)} × {formatMeasurement(furnitureCatalog[kind].depthMm, unit)}</small></button>)}
-          </div>
+          <h2>Tambah furnitur & aksesoris</h2>
+          {furnitureGroups.map((group) => (
+            <div key={group.title} className="catalog-group">
+              <span className="group-label">{group.title}</span>
+              <div className="asset-list">
+                {group.kinds.map((kind) => (
+                  <button key={kind} onClick={() => addItem(kind)}>
+                    <span>{furnitureCatalog[kind].name}</span>
+                    <small>{formatMeasurement(furnitureCatalog[kind].widthMm, unit)} × {formatMeasurement(furnitureCatalog[kind].depthMm, unit)}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       </aside>
 
@@ -246,7 +210,60 @@ export default function App() {
             <h2>Posisi</h2>
             <NumberField key={`${selected.id}-x-${selected.xMm}-${unit}`} unit={unit} label="Sumbu X" value={selected.xMm} min={0} max={room.widthMm - selectedSize!.widthMm} onChange={(xMm) => updateSelected({ xMm })} />
             <NumberField key={`${selected.id}-z-${selected.zMm}-${unit}`} unit={unit} label="Sumbu Z" value={selected.zMm} min={0} max={room.depthMm - selectedSize!.depthMm} onChange={(zMm) => updateSelected({ zMm })} />
-            <label className="field"><span>Rotasi</span><select value={selected.rotation} onChange={(event) => updateSelected({ rotation: Number(event.target.value) as 0 | 90 })}><option value="0">0°</option><option value="90">90°</option></select></label>
+            <div className="rotation-group">
+              <label className="field">
+                <span>Arah hadap / Rotasi</span>
+                <select
+                  value={[0, 45, 90, 135, 180, 225, 270, 315].includes(selected.rotation) ? selected.rotation : 'custom'}
+                  onChange={(event) => {
+                    if (event.target.value !== 'custom') {
+                      updateSelected({ rotation: Number(event.target.value) })
+                    }
+                  }}
+                >
+                  <option value="0">0° — Depan (Selatan)</option>
+                  <option value="45">45° — Serong Kanan Depan</option>
+                  <option value="90">90° — Kanan (Barat)</option>
+                  <option value="135">135° — Serong Kanan Belakang</option>
+                  <option value="180">180° — Belakang (Utara)</option>
+                  <option value="225">225° — Serong Kiri Belakang</option>
+                  <option value="270">270° — Kiri (Timur)</option>
+                  <option value="315">315° — Serong Kiri Depan</option>
+                  {![0, 45, 90, 135, 180, 225, 270, 315].includes(selected.rotation) && (
+                    <option value="custom">{selected.rotation}° — Sudut Kustom</option>
+                  )}
+                </select>
+              </label>
+              <div className="rotation-input-row">
+                <label className="field">
+                  <span>Sudut derajat (0-359°)</span>
+                  <span className="number-input">
+                    <input
+                      type="number"
+                      min={0}
+                      max={359}
+                      step={15}
+                      value={selected.rotation}
+                      onChange={(event) => {
+                        const val = Number(event.target.value)
+                        if (Number.isFinite(val)) {
+                          updateSelected({ rotation: ((Math.round(val) % 360) + 360) % 360 })
+                        }
+                      }}
+                    />
+                    <b>°</b>
+                  </span>
+                </label>
+                <div className="rotation-actions">
+                  <button type="button" title="Putar 90° berlawanan jarum jam" onClick={() => updateSelected({ rotation: (selected.rotation + 270) % 360 })}>
+                    ↺ -90°
+                  </button>
+                  <button type="button" title="Putar 90° searah jarum jam" onClick={() => updateSelected({ rotation: (selected.rotation + 90) % 360 })}>
+                    ↻ +90°
+                  </button>
+                </div>
+              </div>
+            </div>
             {selected.kind === 'bed' && <label className="field"><span>Posisi kepala ranjang</span><select value={selected.pillowPosition ?? 'top'} onChange={(event) => updateSelected({ pillowPosition: event.target.value as 'top' | 'bottom' })}><option value="top">Atas</option><option value="bottom">Bawah</option></select></label>}
           </section>
           <section className="validation" aria-live="polite">
