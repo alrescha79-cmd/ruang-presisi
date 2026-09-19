@@ -61,8 +61,9 @@ function Wall({ side, room, door }: { side: WallSide; room: Room; door: Door }) 
   ))
 }
 
-function Bed({ width, depth, height }: { width: number; depth: number; height: number }) {
+function Bed({ width, depth, height, pillowPosition }: { width: number; depth: number; height: number; pillowPosition: 'top' | 'bottom' }) {
   const frameHeight = Math.min(0.18, height * 0.36)
+  const pillowEnd = pillowPosition === 'top' ? -1 : 1
   const mattressHeight = Math.max(0.16, height * 0.46)
   const mattressWidth = width * 0.93
   const mattressDepth = depth * 0.9
@@ -71,8 +72,8 @@ function Bed({ width, depth, height }: { width: number; depth: number; height: n
     <Box size={[width, frameHeight, depth]} position={[0, frameHeight / 2 + 0.08, 0]} color={darkWood} />
     {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => <Box key={index} size={[leg, 0.12, leg]} position={[x * (width / 2 - leg), 0.06, z * (depth / 2 - leg)]} color={darkWood} />)}
     <Box size={[mattressWidth, mattressHeight, mattressDepth]} position={[0, frameHeight + mattressHeight / 2 + 0.08, depth * 0.02]} color={fabric} roughness={0.95} />
-    <Box size={[width * 0.98, Math.max(0.58, height), 0.07]} position={[0, Math.max(0.58, height) / 2, -depth / 2 + 0.035]} color={wood} />
-    {[-0.28, 0.28].map((x) => <Box key={x} size={[width * 0.38, 0.1, depth * 0.2]} position={[width * x, frameHeight + mattressHeight + 0.1, -depth * 0.29]} color="#eee9df" roughness={1} />)}
+    <Box size={[width * 0.98, Math.max(0.58, height), 0.07]} position={[0, Math.max(0.58, height) / 2, pillowEnd * (depth / 2 - 0.035)]} color={wood} />
+    {[-0.28, 0.28].map((x) => <Box key={x} size={[width * 0.38, 0.1, depth * 0.2]} position={[width * x, frameHeight + mattressHeight + 0.1, pillowEnd * depth * 0.29]} color="#eee9df" roughness={1} />)}
     <Box size={[mattressWidth, 0.025, depth * 0.26]} position={[0, frameHeight + mattressHeight + 0.015, depth * 0.28]} color="#9c5541" roughness={0.95} />
   </>
 }
@@ -114,7 +115,7 @@ function Chair({ width, depth, height }: { width: number; depth: number; height:
 function FurnitureModel({ item, width, depth, invalid }: { item: Furniture; width: number; depth: number; invalid: boolean }) {
   if (invalid) return <Box size={[width, item.heightMm / 1000, depth]} position={[0, item.heightMm / 2000, 0]} color="#b33b2e" />
   const height = item.heightMm / 1000
-  if (item.kind === 'bed') return <Bed width={width} depth={depth} height={height} />
+  if (item.kind === 'bed') return <Bed width={width} depth={depth} height={height} pillowPosition={item.pillowPosition ?? 'top'} />
   if (item.kind === 'wardrobe') return <Wardrobe width={width} depth={depth} height={height} />
   if (item.kind === 'desk') return <Desk width={width} depth={depth} height={height} />
   return <Chair width={width} depth={depth} height={height} />

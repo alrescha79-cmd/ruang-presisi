@@ -23,7 +23,7 @@ function loadProject(): SavedProject {
     if (validRoom.widthMm < 2000 || validRoom.widthMm > 12000 || validRoom.depthMm < 2000 || validRoom.depthMm > 12000 || validRoom.heightMm < 2000 || validRoom.heightMm > 5000) throw new Error()
     const ids = new Set<string>()
     const items = value.items as Furniture[]
-    if (!items.every((item) => item && typeof item.id === 'string' && !ids.has(item.id) && ids.add(item.id) && typeof item.name === 'string' && typeof item.color === 'string' && [item.widthMm, item.depthMm, item.heightMm, item.xMm, item.zMm].every(Number.isFinite) && item.widthMm > 0 && item.depthMm > 0 && item.heightMm > 0 && (item.rotation === 0 || item.rotation === 90))) throw new Error()
+    if (!items.every((item) => item && typeof item.id === 'string' && !ids.has(item.id) && ids.add(item.id) && typeof item.name === 'string' && typeof item.color === 'string' && [item.widthMm, item.depthMm, item.heightMm, item.xMm, item.zMm].every(Number.isFinite) && item.widthMm > 0 && item.depthMm > 0 && item.heightMm > 0 && (item.rotation === 0 || item.rotation === 90) && (item.pillowPosition === undefined || item.pillowPosition === 'top' || item.pillowPosition === 'bottom'))) throw new Error()
     const sides: WallSide[] = ['north', 'east', 'south', 'west']
     const rawDoor = 'door' in value ? value.door as Door : defaultDoor
     const door = rawDoor && sides.includes(rawDoor.side) && [rawDoor.offsetMm, rawDoor.widthMm, rawDoor.heightMm].every(Number.isFinite) ? clampDoor(rawDoor, validRoom) : defaultDoor
@@ -168,6 +168,7 @@ export default function App() {
             <NumberField key={`${selected.id}-x-${selected.xMm}-${unit}`} unit={unit} label="Sumbu X" value={selected.xMm} min={0} max={room.widthMm - selectedSize!.widthMm} onChange={(xMm) => updateSelected({ xMm })} />
             <NumberField key={`${selected.id}-z-${selected.zMm}-${unit}`} unit={unit} label="Sumbu Z" value={selected.zMm} min={0} max={room.depthMm - selectedSize!.depthMm} onChange={(zMm) => updateSelected({ zMm })} />
             <label className="field"><span>Rotasi</span><select value={selected.rotation} onChange={(event) => updateSelected({ rotation: Number(event.target.value) as 0 | 90 })}><option value="0">0°</option><option value="90">90°</option></select></label>
+            {selected.kind === 'bed' && <label className="field"><span>Posisi kepala ranjang</span><select value={selected.pillowPosition ?? 'top'} onChange={(event) => updateSelected({ pillowPosition: event.target.value as 'top' | 'bottom' })}><option value="top">Atas</option><option value="bottom">Bawah</option></select></label>}
           </section>
           <section className="validation" aria-live="polite">
             {Object.values(itemIssues(selected, items, room)).some(Boolean) ? <strong>Objek bertabrakan. Ubah posisi atau rotasi.</strong> : <strong>Posisi objek valid.</strong>}
