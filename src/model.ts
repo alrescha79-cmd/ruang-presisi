@@ -1,6 +1,16 @@
 export type Room = { widthMm: number; depthMm: number; heightMm: number }
 
-export type FurnitureKind = 'bed' | 'wardrobe' | 'desk' | 'chair'
+export type FurnitureKind =
+  | 'bed'
+  | 'wardrobe'
+  | 'desk'
+  | 'chair'
+  | 'nightstand'
+  | 'shoe_rack'
+  | 'coat_rack'
+  | 'flower_vase'
+  | 'floor_lamp'
+  | 'bookshelf'
 export type WallSide = 'north' | 'east' | 'south' | 'west'
 export type Door = { side: WallSide; offsetMm: number; widthMm: number; heightMm: number }
 export type WallVisibility = Record<WallSide, boolean>
@@ -37,9 +47,15 @@ export type Furniture = {
 
 export const furnitureCatalog: Record<FurnitureKind, Omit<Furniture, 'id' | 'xMm' | 'zMm'>> = {
   bed: { kind: 'bed', name: 'Tempat tidur', widthMm: 1600, depthMm: 2000, heightMm: 500, rotation: 0, color: '#bb6b4a' },
-  wardrobe: { kind: 'wardrobe', name: 'Lemari', widthMm: 1200, depthMm: 600, heightMm: 2100, rotation: 0, color: '#617d70' },
+  wardrobe: { kind: 'wardrobe', name: 'Lemari pakaian', widthMm: 1200, depthMm: 600, heightMm: 2100, rotation: 0, color: '#617d70' },
   desk: { kind: 'desk', name: 'Meja kerja', widthMm: 1200, depthMm: 600, heightMm: 750, rotation: 0, color: '#cf9f55' },
   chair: { kind: 'chair', name: 'Kursi', widthMm: 500, depthMm: 500, heightMm: 850, rotation: 0, color: '#546579' },
+  nightstand: { kind: 'nightstand', name: 'Nakas samping', widthMm: 450, depthMm: 400, heightMm: 550, rotation: 0, color: '#7a5230' },
+  shoe_rack: { kind: 'shoe_rack', name: 'Rak sepatu', widthMm: 800, depthMm: 320, heightMm: 600, rotation: 0, color: '#5e3f28' },
+  coat_rack: { kind: 'coat_rack', name: 'Gantungan baju', widthMm: 450, depthMm: 450, heightMm: 1750, rotation: 0, color: '#4a2c1a' },
+  flower_vase: { kind: 'flower_vase', name: 'Vas bunga & meja', widthMm: 400, depthMm: 400, heightMm: 850, rotation: 0, color: '#8c593b' },
+  floor_lamp: { kind: 'floor_lamp', name: 'Lampu sudut', widthMm: 400, depthMm: 400, heightMm: 1550, rotation: 0, color: '#d4af37' },
+  bookshelf: { kind: 'bookshelf', name: 'Rak buku', widthMm: 800, depthMm: 350, heightMm: 1600, rotation: 0, color: '#5a3825' },
 }
 
 export function wallLength(room: Room, side: WallSide) {

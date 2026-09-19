@@ -48,4 +48,16 @@ describe('furniture geometry', () => {
     expect(itemIssues(wardrobe, [wardrobe], { ...room, heightMm: 2000 }).outside).toBe(true)
     expect(itemIssues(wardrobe, [wardrobe], { ...room, heightMm: 2100 }).outside).toBe(false)
   })
+
+  it('provides complete and valid furniture catalog items', () => {
+    const kinds = Object.keys(furnitureCatalog)
+    expect(kinds.length).toBeGreaterThanOrEqual(8)
+    for (const kind of kinds) {
+      const item = furnitureCatalog[kind as keyof typeof furnitureCatalog]
+      expect(item.name.length).toBeGreaterThan(0)
+      expect(item.widthMm).toBeGreaterThan(0)
+      expect(item.depthMm).toBeGreaterThan(0)
+      expect(item.heightMm).toBeGreaterThan(0)
+    }
+  })
 })
