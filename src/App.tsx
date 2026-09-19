@@ -9,6 +9,17 @@ const defaultWalls: WallVisibility = { north: true, east: true, south: true, wes
 const wallLabels: Record<WallSide, string> = { north: 'Utara', east: 'Timur', south: 'Selatan', west: 'Barat' }
 const storageKey = 'ruang-presisi-project'
 
+const furnitureGroups: { title: string; kinds: FurnitureKind[] }[] = [
+  {
+    title: 'Furnitur Utama',
+    kinds: ['bed', 'wardrobe', 'desk', 'chair', 'bookshelf'],
+  },
+  {
+    title: 'Aksesoris & Dekorasi',
+    kinds: ['nightstand', 'shoe_rack', 'coat_rack', 'flower_vase', 'floor_lamp'],
+  },
+]
+
 type SavedProject = { room: Room; items: Furniture[]; door: Door; walls: WallVisibility }
 
 function loadProject(): SavedProject {
@@ -212,10 +223,20 @@ export default function App() {
           <div className="wall-toggles">{(Object.keys(wallLabels) as WallSide[]).map((side) => <label key={side}><input type="checkbox" checked={walls[side]} onChange={(event) => setWalls({ ...walls, [side]: event.target.checked })} /> <span>{wallLabels[side]}</span></label>)}</div>
         </section>
         <section>
-          <h2>Tambah furnitur</h2>
-          <div className="asset-list">
-            {(Object.keys(furnitureCatalog) as FurnitureKind[]).map((kind) => <button key={kind} onClick={() => addItem(kind)}><span>{furnitureCatalog[kind].name}</span><small>{formatMeasurement(furnitureCatalog[kind].widthMm, unit)} × {formatMeasurement(furnitureCatalog[kind].depthMm, unit)}</small></button>)}
-          </div>
+          <h2>Tambah furnitur & aksesoris</h2>
+          {furnitureGroups.map((group) => (
+            <div key={group.title} className="catalog-group">
+              <span className="group-label">{group.title}</span>
+              <div className="asset-list">
+                {group.kinds.map((kind) => (
+                  <button key={kind} onClick={() => addItem(kind)}>
+                    <span>{furnitureCatalog[kind].name}</span>
+                    <small>{formatMeasurement(furnitureCatalog[kind].widthMm, unit)} × {formatMeasurement(furnitureCatalog[kind].depthMm, unit)}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       </aside>
 
