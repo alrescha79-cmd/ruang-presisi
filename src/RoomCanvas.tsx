@@ -535,7 +535,7 @@ function Scene({ room, items, door, walls, selectedIds, mode, onSelect, onBoxSel
       enabled={!draggedId}
       target={[0, 0.5, 0]}
       maxPolarAngle={Math.PI / 2.05}
-      minDistance={3}
+      minDistance={1.8}
       maxDistance={16}
       mouseButtons={orbitMouseButtons}
     />
@@ -568,7 +568,7 @@ export function RoomCanvas(props: Props) {
 
   return (
     <div className="canvas-wrapper" data-mode={props.mode}>
-      <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [5, 6, 7], fov: 42 }}>
+      <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [4.4, 5.2, 6.2], fov: 40 }}>
         <Scene key={cancelKey} {...props} setMarqueeRect={setMarqueeRect} />
       </Canvas>
       {marqueeRect && (

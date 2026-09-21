@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatExportTitle, calculateRenderCrop } from './exportPreview'
 import { bedPillowCenters, clampDoor, clampItem, createRoomProject, findEmptyPosition, footprint, formatMeasurement, fromMillimeters, itemIssues, furnitureCatalog, isBoxIntersecting, mergeBoxSelection, normalizeBox, positionFromWorld, toMillimeters, toggleItemSelection, wallLength, type Furniture, type Door } from './model'
 
 const bed: Furniture = { ...furnitureCatalog.bed, id: 'bed', xMm: 0, zMm: 0 }
@@ -144,5 +145,26 @@ describe('furniture geometry', () => {
     const toDelete = new Set(['1', '3'])
     const remaining = list.filter((it) => !toDelete.has(it.id))
     expect(remaining.map((it) => it.id)).toEqual(['2'])
+  })
+
+  it('formats export title as "{nama kamar} ukuran {ukuran} meter"', () => {
+    expect(formatExportTitle('Kamar Tidur Utama', 4000, 5000)).toBe('Kamar Tidur Utama ukuran 4 × 5 meter')
+    expect(formatExportTitle('Kamar Anak', 3000, 3000)).toBe('Kamar Anak ukuran 3 × 3 meter')
+    expect(formatExportTitle('  Kamar Tamu  ', 3500, 4200)).toBe('Kamar Tamu ukuran 3.5 × 4.2 meter')
+    expect(formatExportTitle('', 3000, 4000)).toBe('Kamar ukuran 3 × 4 meter')
+  })
+
+  it('calculates 3D render crop with zoom and centered focus on room', () => {
+    // Canvas 1920x1080, target card 1632x698, 4m x 3m room
+    const crop = calculateRenderCrop(1920, 1080, 1632, 698, 4000, 3000)
+    expect(crop.zoom).toBeGreaterThanOrEqual(1.15)
+    expect(crop.zoom).toBeLessThanOrEqual(1.5)
+    // Crop area must stay within canvas bounds
+    expect(crop.sw).toBeLessThanOrEqual(1920)
+    expect(crop.sh).toBeLessThanOrEqual(1080)
+    expect(crop.sx).toBeGreaterThanOrEqual(0)
+    expect(crop.sy).toBeGreaterThanOrEqual(0)
+    expect(crop.sx + crop.sw).toBeLessThanOrEqual(1920)
+    expect(crop.sy + crop.sh).toBeLessThanOrEqual(1080)
   })
 })

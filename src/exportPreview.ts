@@ -86,6 +86,45 @@ function drawDimensionV(ctx: CanvasRenderingContext2D, y1: number, y2: number, x
   ctx.restore()
 }
 
+export function formatExportTitle(roomName: string, roomWidthMm: number, roomDepthMm: number): string {
+  const roomW_M = (roomWidthMm / 1000).toFixed(1).replace('.0', '')
+  const roomD_M = (roomDepthMm / 1000).toFixed(1).replace('.0', '')
+  const cleanRoomName = (roomName || 'Kamar').trim()
+  return `${cleanRoomName} ukuran ${roomW_M} × ${roomD_M} meter`
+}
+
+export function calculateRenderCrop(
+  canvasWidth: number,
+  canvasHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+  roomWidthMm: number,
+  roomDepthMm: number
+) {
+  const cw = canvasWidth
+  const ch = canvasHeight
+  const srcRatio = cw / ch
+  const targetRatio = targetWidth / targetHeight
+
+  let baseW = cw
+  let baseH = ch
+  if (srcRatio > targetRatio) {
+    baseW = ch * targetRatio
+  } else {
+    baseH = cw / targetRatio
+  }
+
+  // ponytail: dynamic zoom focused on room layout (1.15x - 1.5x)
+  const maxDimM = Math.max(roomWidthMm, roomDepthMm) / 1000
+  const zoom = Math.max(1.15, Math.min(1.5, 1.75 - maxDimM * 0.1))
+  const sw = Math.min(cw, baseW / zoom)
+  const sh = Math.min(ch, baseH / zoom)
+  const sx = Math.max(0, Math.floor((cw - sw) / 2))
+  const sy = Math.max(0, Math.floor((ch - sh) / 2))
+
+  return { sx, sy, sw, sh, zoom }
+}
+
 export function generateExportImage(
   room: Room,
   items: Furniture[],
@@ -131,7 +170,7 @@ export function generateExportImage(
   // 2. HEADER
   const roomW_M = (room.widthMm / 1000).toFixed(1).replace('.0', '')
   const roomD_M = (room.depthMm / 1000).toFixed(1).replace('.0', '')
-  const title = `${roomName} · ${roomW_M} × ${roomD_M} Meter`
+  const title = formatExportTitle(roomName, room.widthMm, room.depthMm)
 
   // Title badge
   ctx.fillStyle = '#87321f'
@@ -141,6 +180,12 @@ export function generateExportImage(
 
   ctx.fillStyle = '#2f1911'
   ctx.font = '700 56px "Newsreader", Georgia, serif'
+  const maxTitleWidth = W - 90 - 640 - 140
+  let titleFontSize = 56
+  while (ctx.measureText(title).width > maxTitleWidth && titleFontSize > 32) {
+    titleFontSize -= 2
+    ctx.font = `700 ${titleFontSize}px "Newsreader", Georgia, serif`
+  }
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
   ctx.fillText(title, 140, 108)
@@ -497,32 +542,46 @@ export function generateExportImage(
   ctx.textAlign = 'left'
   ctx.fillText('TAMPAK PERSPEKTIF 3D REALISTIS (RENDER INTERIOR)', renderCardX + 28, bottomY + 38)
 
-  // Draw the Three.js 3D render inside
+  // Draw the Three.js 3D render inside with zoom and focus on the room
+  const imgAreaX = renderCardX + 24
+  const imgAreaY = bottomY + 58
+  const imgAreaW = renderCardW - 48
+  const imgAreaH = bottomH - 82
+
   if (threeCanvas && threeCanvas.width > 0 && threeCanvas.height > 0) {
-    const imgAreaX = renderCardX + 24
-    const imgAreaY = bottomY + 58
-    const imgAreaW = renderCardW - 48
-    const imgAreaH = bottomH - 82
+    const { sx, sy, sw, sh } = calculateRenderCrop(
+      threeCanvas.width,
+      threeCanvas.height,
+      imgAreaW,
+      imgAreaH,
+      room.widthMm,
+      room.depthMm
+    )
 
-    const srcRatio = threeCanvas.width / threeCanvas.height
-    const targetRatio = imgAreaW / imgAreaH
-    let dw = imgAreaW
-    let dh = imgAreaH
-    if (srcRatio > targetRatio) {
-      dh = imgAreaW / srcRatio
-    } else {
-      dw = imgAreaH * srcRatio
-    }
-    const dx = imgAreaX + (imgAreaW - dw) / 2
-    const dy = imgAreaY + (imgAreaH - dh) / 2
+    ctx.save()
+    ctx.beginPath()
+    ctx.roundRect(imgAreaX, imgAreaY, imgAreaW, imgAreaH, 4)
+    ctx.clip()
 
-    // Background behind image
-    ctx.fillStyle = '#dcd7cf'
+    ctx.fillStyle = '#eae5dc'
     ctx.fillRect(imgAreaX, imgAreaY, imgAreaW, imgAreaH)
-    ctx.drawImage(threeCanvas, dx, dy, dw, dh)
+    ctx.drawImage(threeCanvas, sx, sy, sw, sh, imgAreaX, imgAreaY, imgAreaW, imgAreaH)
+    ctx.restore()
+
     ctx.strokeStyle = '#b8a995'
     ctx.lineWidth = 2
-    ctx.strokeRect(dx, dy, dw, dh)
+    ctx.strokeRect(imgAreaX, imgAreaY, imgAreaW, imgAreaH)
+  } else {
+    ctx.fillStyle = '#eae5dc'
+    ctx.fillRect(imgAreaX, imgAreaY, imgAreaW, imgAreaH)
+    ctx.fillStyle = '#7a6659'
+    ctx.font = '600 20px "DM Sans", sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Pratinjau render 3D ruang interior presisi', imgAreaX + imgAreaW / 2, imgAreaY + imgAreaH / 2)
+    ctx.strokeStyle = '#b8a995'
+    ctx.lineWidth = 2
+    ctx.strokeRect(imgAreaX, imgAreaY, imgAreaW, imgAreaH)
   }
 
   // Bottom Right: Summary Card & Project Metadata
