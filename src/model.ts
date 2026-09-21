@@ -12,13 +12,23 @@ export type FurnitureKind =
   | 'floor_lamp'
   | 'bookshelf'
 export type WallSide = 'north' | 'east' | 'south' | 'west'
-export type Door = { side: WallSide; offsetMm: number; widthMm: number; heightMm: number }
+export type DoorSwing = 'inward' | 'outward'
+export type DoorOpeningSide = 'left' | 'right'
+export type Door = {
+  side: WallSide
+  offsetMm: number
+  widthMm: number
+  heightMm: number
+  swing?: DoorSwing
+  open?: boolean
+  openingSide?: DoorOpeningSide
+}
 export type WallVisibility = Record<WallSide, boolean>
 export type MeasurementUnit = 'm' | 'cm' | 'mm'
 export type RoomProject = { id: string; name: string; room: Room; items: Furniture[]; door: Door; walls: WallVisibility }
 
 export const defaultRoom: Room = { widthMm: 4000, depthMm: 3000, heightMm: 2800 }
-export const defaultDoor: Door = { side: 'south', offsetMm: 400, widthMm: 900, heightMm: 2100 }
+export const defaultDoor: Door = { side: 'south', offsetMm: 400, widthMm: 900, heightMm: 2100, swing: 'inward', open: true, openingSide: 'right' }
 export const defaultWalls: WallVisibility = { north: true, east: true, south: true, west: true }
 
 export function createRoomProject(id: string, name: string): RoomProject {
@@ -79,6 +89,9 @@ export function clampDoor(door: Door, room: Room): Door {
     widthMm,
     heightMm: Math.max(1800, Math.min(door.heightMm, room.heightMm)),
     offsetMm: Math.max(0, Math.min(door.offsetMm, maxWidth - widthMm)),
+    swing: door.swing === 'outward' ? 'outward' : 'inward',
+    open: door.open !== false,
+    openingSide: door.openingSide === 'left' ? 'left' : 'right',
   }
 }
 

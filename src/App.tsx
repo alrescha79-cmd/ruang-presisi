@@ -364,6 +364,39 @@ export default function App() {
         <section>
           <h2>Pintu</h2>
           <label className="field"><span>Dinding</span><ThemedSelect value={door.side} options={Object.entries(wallLabels).map(([value, label]) => ({ value, label }))} onChange={(value) => updateActive({ door: clampDoor({ ...door, side: value as WallSide }, room) })} /></label>
+          <label className="field">
+            <span>Arah bukaan</span>
+            <ThemedSelect
+              value={door.swing ?? 'inward'}
+              options={[
+                { value: 'inward', label: 'Buka ke dalam' },
+                { value: 'outward', label: 'Buka ke luar' },
+              ]}
+              onChange={(value) => updateActive({ door: clampDoor({ ...door, swing: value as 'inward' | 'outward' }, room) })}
+            />
+          </label>
+          <label className="field">
+            <span>Sisi bukaan</span>
+            <ThemedSelect
+              value={door.openingSide ?? 'right'}
+              options={[
+                { value: 'right', label: 'Buka dari kanan' },
+                { value: 'left', label: 'Buka dari kiri' },
+              ]}
+              onChange={(value) => updateActive({ door: clampDoor({ ...door, openingSide: value as 'left' | 'right' }, room) })}
+            />
+          </label>
+          <label className="field">
+            <span>Status pintu</span>
+            <ThemedSelect
+              value={door.open !== false ? 'open' : 'closed'}
+              options={[
+                { value: 'open', label: 'Terbuka' },
+                { value: 'closed', label: 'Tertutup' },
+              ]}
+              onChange={(value) => updateActive({ door: clampDoor({ ...door, open: value === 'open' }, room) })}
+            />
+          </label>
           <NumberField key={`door-offset-${door.side}-${door.offsetMm}-${unit}`} unit={unit} label="Jarak dari kiri" value={door.offsetMm} min={0} max={wallLength(room, door.side) - door.widthMm} onChange={(offsetMm) => updateActive({ door: clampDoor({ ...door, offsetMm }, room) })} />
           <NumberField key={`door-width-${door.widthMm}-${unit}`} unit={unit} label="Lebar pintu" value={door.widthMm} min={600} max={wallLength(room, door.side)} onChange={(widthMm) => updateActive({ door: clampDoor({ ...door, widthMm }, room) })} />
           <NumberField key={`door-height-${door.heightMm}-${unit}`} unit={unit} label="Tinggi pintu" value={door.heightMm} min={1800} max={room.heightMm} onChange={(heightMm) => updateActive({ door: clampDoor({ ...door, heightMm }, room) })} />

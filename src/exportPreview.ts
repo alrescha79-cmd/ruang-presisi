@@ -114,9 +114,9 @@ export function calculateRenderCrop(
     baseH = cw / targetRatio
   }
 
-  // ponytail: dynamic zoom focused on room layout (1.15x - 1.5x)
+  // ponytail: gentle zoom (1.02x - 1.08x) giving ample breathing room around room edges
   const maxDimM = Math.max(roomWidthMm, roomDepthMm) / 1000
-  const zoom = Math.max(1.15, Math.min(1.5, 1.75 - maxDimM * 0.1))
+  const zoom = Math.max(1.02, Math.min(1.08, 1.15 - maxDimM * 0.02))
   const sw = Math.min(cw, baseW / zoom)
   const sh = Math.min(ch, baseH / zoom)
   const sx = Math.max(0, Math.floor((cw - sw) / 2))
@@ -280,27 +280,70 @@ export function generateExportImage(
   ctx.fillStyle = '#43261a'
   ctx.lineWidth = wallThick
 
-  // Draw walls with gap for door
+  // Draw walls with gap for door (all 4 orientations synchronized with 3D)
   const dOffset = door.offsetMm * scale
   const dWidth = door.widthMm * scale
+  const isDoorOpen = door.open !== false
+  const isDoorOutward = door.swing === 'outward'
+  const isDoorFromLeft = door.openingSide === 'left'
 
-  if (door.side === 'south') {
-    // North wall
+  // North wall
+  if (door.side === 'north') {
+    ctx.beginPath()
+    ctx.moveTo(rX - wallThick / 2, rY)
+    ctx.lineTo(rX + dOffset, rY)
+    ctx.moveTo(rX + dOffset + dWidth, rY)
+    ctx.lineTo(rX + drawW + wallThick / 2, rY)
+    ctx.stroke()
+
+    ctx.save()
+    if (!isDoorOpen) {
+      // Closed door leaf across opening
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(rX + dOffset, rY)
+      ctx.lineTo(rX + dOffset + dWidth, rY)
+      ctx.stroke()
+    } else {
+      const hingeX = isDoorFromLeft ? rX + dOffset + dWidth : rX + dOffset
+      ctx.strokeStyle = '#b08b68'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+      ctx.beginPath()
+      if (!isDoorFromLeft) {
+        if (!isDoorOutward) {
+          ctx.arc(hingeX, rY, dWidth, 0, Math.PI / 2, false)
+        } else {
+          ctx.arc(hingeX, rY, dWidth, -Math.PI / 2, 0, false)
+        }
+      } else {
+        if (!isDoorOutward) {
+          ctx.arc(hingeX, rY, dWidth, Math.PI / 2, Math.PI, false)
+        } else {
+          ctx.arc(hingeX, rY, dWidth, -Math.PI, -Math.PI / 2, false)
+        }
+      }
+      ctx.stroke()
+
+      ctx.setLineDash([])
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(hingeX, rY)
+      ctx.lineTo(hingeX, !isDoorOutward ? rY + dWidth : rY - dWidth)
+      ctx.stroke()
+    }
+    ctx.restore()
+  } else {
     ctx.beginPath()
     ctx.moveTo(rX - wallThick / 2, rY)
     ctx.lineTo(rX + drawW + wallThick / 2, rY)
     ctx.stroke()
-    // West wall
-    ctx.beginPath()
-    ctx.moveTo(rX, rY)
-    ctx.lineTo(rX, rY + drawD)
-    ctx.stroke()
-    // East wall
-    ctx.beginPath()
-    ctx.moveTo(rX + drawW, rY)
-    ctx.lineTo(rX + drawW, rY + drawD)
-    ctx.stroke()
-    // South wall segments around door
+  }
+
+  // South wall
+  if (door.side === 'south') {
     ctx.beginPath()
     ctx.moveTo(rX - wallThick / 2, rY + drawD)
     ctx.lineTo(rX + dOffset, rY + drawD)
@@ -308,27 +351,196 @@ export function generateExportImage(
     ctx.lineTo(rX + drawW + wallThick / 2, rY + drawD)
     ctx.stroke()
 
-    // Door swing arc
     ctx.save()
-    ctx.strokeStyle = '#b08b68'
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 5])
-    ctx.beginPath()
-    ctx.arc(rX + dOffset, rY + drawD, dWidth, -Math.PI / 2, 0, false)
-    ctx.stroke()
-    // Door leaf
-    ctx.setLineDash([])
-    ctx.strokeStyle = '#87321f'
-    ctx.lineWidth = 4
-    ctx.beginPath()
-    ctx.moveTo(rX + dOffset, rY + drawD)
-    ctx.lineTo(rX + dOffset, rY + drawD - dWidth)
-    ctx.stroke()
+    if (!isDoorOpen) {
+      // Closed door leaf across opening
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(rX + dOffset, rY + drawD)
+      ctx.lineTo(rX + dOffset + dWidth, rY + drawD)
+      ctx.stroke()
+    } else {
+      const hingeX = isDoorFromLeft ? rX + dOffset + dWidth : rX + dOffset
+      ctx.strokeStyle = '#b08b68'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+      ctx.beginPath()
+      if (!isDoorFromLeft) {
+        if (!isDoorOutward) {
+          ctx.arc(hingeX, rY + drawD, dWidth, -Math.PI / 2, 0, false)
+        } else {
+          ctx.arc(hingeX, rY + drawD, dWidth, 0, Math.PI / 2, false)
+        }
+      } else {
+        if (!isDoorOutward) {
+          ctx.arc(hingeX, rY + drawD, dWidth, -Math.PI, -Math.PI / 2, false)
+        } else {
+          ctx.arc(hingeX, rY + drawD, dWidth, Math.PI / 2, Math.PI, false)
+        }
+      }
+      ctx.stroke()
+
+      ctx.setLineDash([])
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(hingeX, rY + drawD)
+      ctx.lineTo(hingeX, !isDoorOutward ? rY + drawD - dWidth : rY + drawD + dWidth)
+      ctx.stroke()
+    }
     ctx.restore()
   } else {
-    // Standard 4 walls fallback
-    ctx.strokeRect(rX, rY, drawW, drawD)
+    ctx.beginPath()
+    ctx.moveTo(rX - wallThick / 2, rY + drawD)
+    ctx.lineTo(rX + drawW + wallThick / 2, rY + drawD)
+    ctx.stroke()
   }
+
+  // West wall
+  if (door.side === 'west') {
+    ctx.beginPath()
+    ctx.moveTo(rX, rY)
+    ctx.lineTo(rX, rY + dOffset)
+    ctx.moveTo(rX, rY + dOffset + dWidth)
+    ctx.lineTo(rX, rY + drawD)
+    ctx.stroke()
+
+    ctx.save()
+    if (!isDoorOpen) {
+      // Closed door leaf across opening
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(rX, rY + dOffset)
+      ctx.lineTo(rX, rY + dOffset + dWidth)
+      ctx.stroke()
+    } else {
+      const hingeY = isDoorFromLeft ? rY + dOffset + dWidth : rY + dOffset
+      ctx.strokeStyle = '#b08b68'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+      ctx.beginPath()
+      if (!isDoorFromLeft) {
+        if (!isDoorOutward) {
+          ctx.arc(rX, hingeY, dWidth, 0, Math.PI / 2, false)
+        } else {
+          ctx.arc(rX, hingeY, dWidth, Math.PI / 2, Math.PI, false)
+        }
+      } else {
+        if (!isDoorOutward) {
+          ctx.arc(rX, hingeY, dWidth, -Math.PI / 2, 0, false)
+        } else {
+          ctx.arc(rX, hingeY, dWidth, -Math.PI, -Math.PI / 2, false)
+        }
+      }
+      ctx.stroke()
+
+      ctx.setLineDash([])
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(rX, hingeY)
+      ctx.lineTo(!isDoorOutward ? rX + dWidth : rX - dWidth, hingeY)
+      ctx.stroke()
+    }
+    ctx.restore()
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(rX, rY)
+    ctx.lineTo(rX, rY + drawD)
+    ctx.stroke()
+  }
+
+  // East wall
+  if (door.side === 'east') {
+    ctx.beginPath()
+    ctx.moveTo(rX + drawW, rY)
+    ctx.lineTo(rX + drawW, rY + dOffset)
+    ctx.moveTo(rX + drawW, rY + dOffset + dWidth)
+    ctx.lineTo(rX + drawW, rY + drawD)
+    ctx.stroke()
+
+    ctx.save()
+    if (!isDoorOpen) {
+      // Closed door leaf across opening
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(rX + drawW, rY + dOffset)
+      ctx.lineTo(rX + drawW, rY + dOffset + dWidth)
+      ctx.stroke()
+    } else {
+      const hingeY = isDoorFromLeft ? rY + dOffset + dWidth : rY + dOffset
+      ctx.strokeStyle = '#b08b68'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+      ctx.beginPath()
+      if (!isDoorFromLeft) {
+        if (!isDoorOutward) {
+          ctx.arc(rX + drawW, hingeY, dWidth, Math.PI / 2, Math.PI, false)
+        } else {
+          ctx.arc(rX + drawW, hingeY, dWidth, 0, Math.PI / 2, false)
+        }
+      } else {
+        if (!isDoorOutward) {
+          ctx.arc(rX + drawW, hingeY, dWidth, -Math.PI, -Math.PI / 2, false)
+        } else {
+          ctx.arc(rX + drawW, hingeY, dWidth, -Math.PI / 2, 0, false)
+        }
+      }
+      ctx.stroke()
+
+      ctx.setLineDash([])
+      ctx.strokeStyle = '#87321f'
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(rX + drawW, hingeY)
+      ctx.lineTo(!isDoorOutward ? rX + drawW - dWidth : rX + drawW + dWidth, hingeY)
+      ctx.stroke()
+    }
+    ctx.restore()
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(rX + drawW, rY)
+    ctx.lineTo(rX + drawW, rY + drawD)
+    ctx.stroke()
+  }
+
+  // Cardinal direction labels & entrance pointer
+  ctx.save()
+  ctx.font = '700 13px "IBM Plex Mono", monospace'
+  ctx.fillStyle = '#8f7768'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('UTARA [U]', rX + drawW / 2, rY - 24)
+  ctx.fillText('SELATAN [S]', rX + drawW / 2, rY + drawD + 26)
+
+  ctx.save()
+  ctx.translate(rX - 22, rY + drawD / 2)
+  ctx.rotate(-Math.PI / 2)
+  ctx.fillText('BARAT [B]', 0, 0)
+  ctx.restore()
+
+  ctx.save()
+  ctx.translate(rX + drawW + 22, rY + drawD / 2)
+  ctx.rotate(Math.PI / 2)
+  ctx.fillText('TIMUR [T]', 0, 0)
+  ctx.restore()
+
+  // Entrance badge
+  ctx.font = '700 13px "IBM Plex Mono", monospace'
+  ctx.fillStyle = '#87321f'
+  if (door.side === 'south') {
+    ctx.fillText('▲ PINTU MASUK', rX + dOffset + dWidth / 2, rY + drawD + 16)
+  } else if (door.side === 'north') {
+    ctx.fillText('▼ PINTU MASUK', rX + dOffset + dWidth / 2, rY - 10)
+  } else if (door.side === 'west') {
+    ctx.fillText('▶ PINTU', rX - 34, rY + dOffset + dWidth / 2)
+  } else if (door.side === 'east') {
+    ctx.fillText('◀ PINTU', rX + drawW + 34, rY + dOffset + dWidth / 2)
+  }
+  ctx.restore()
 
   // Draw Furniture on Floor Plan
   items.forEach((item) => {
@@ -602,7 +814,7 @@ export function generateExportImage(
     { label: 'DIMENSI RUANG', val: `${formatMeasurement(room.widthMm, unit)} × ${formatMeasurement(room.depthMm, unit)}` },
     { label: 'LUAS LANTAI', val: `${areaM2} m²` },
     { label: 'TINGGI RUANG', val: `${formatMeasurement(room.heightMm, unit)}` },
-    { label: 'LEBAR PINTU', val: `${door.widthMm / 10} cm (${door.side.toUpperCase()})` },
+    { label: 'LEBAR PINTU', val: `${door.widthMm / 10} cm · ${door.side.toUpperCase()} (${door.openingSide === 'left' ? 'KIRI' : 'KANAN'} · ${door.swing === 'outward' ? 'LUAR' : 'DALAM'} · ${door.open !== false ? 'BUKA' : 'TUTUP'})` },
     { label: 'TOTAL FURNITUR', val: `${items.length} Objek Terpasang` },
     { label: 'STATUS TATA RUANG', val: conflicts === 0 ? 'VALID & OPTIMAL' : `${conflicts} KONFLIK` },
   ]

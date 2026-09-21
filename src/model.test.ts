@@ -39,7 +39,7 @@ describe('furniture geometry', () => {
     const project = createRoomProject('room-2', 'Kamar 2')
     expect(project).toMatchObject({ id: 'room-2', name: 'Kamar 2', items: [] })
     expect(project.room).toEqual(room)
-    expect(project.door).toEqual({ side: 'south', offsetMm: 400, widthMm: 900, heightMm: 2100 })
+    expect(project.door).toEqual({ side: 'south', offsetMm: 400, widthMm: 900, heightMm: 2100, swing: 'inward', open: true, openingSide: 'right' })
   })
 
   it('detects collisions and room boundaries', () => {
@@ -57,10 +57,11 @@ describe('furniture geometry', () => {
     expect(clampItem({ ...bed, xMm: 3900, zMm: -100 }, room)).toMatchObject({ xMm: 2400, zMm: 0 })
   })
 
-  it('clamps a door to its wall dimensions', () => {
+  it('clamps a door to its wall dimensions and preserves swing/open/openingSide options', () => {
     expect(wallLength(room, 'north')).toBe(4000)
     expect(wallLength(room, 'east')).toBe(3000)
-    expect(clampDoor({ side: 'east', offsetMm: 2800, widthMm: 900, heightMm: 3000 }, room)).toEqual({ side: 'east', offsetMm: 2100, widthMm: 900, heightMm: 2800 })
+    expect(clampDoor({ side: 'east', offsetMm: 2800, widthMm: 900, heightMm: 3000 }, room)).toEqual({ side: 'east', offsetMm: 2100, widthMm: 900, heightMm: 2800, swing: 'inward', open: true, openingSide: 'right' })
+    expect(clampDoor({ side: 'north', offsetMm: 0, widthMm: 800, heightMm: 2100, swing: 'outward', open: false, openingSide: 'left' }, room)).toEqual({ side: 'north', offsetMm: 0, widthMm: 800, heightMm: 2100, swing: 'outward', open: false, openingSide: 'left' })
   })
 
   it('detects furniture above the ceiling', () => {
@@ -154,11 +155,11 @@ describe('furniture geometry', () => {
     expect(formatExportTitle('', 3000, 4000)).toBe('Kamar ukuran 3 × 4 meter')
   })
 
-  it('calculates 3D render crop with zoom and centered focus on room', () => {
+  it('calculates 3D render crop with gentle zoom and centered focus on room', () => {
     // Canvas 1920x1080, target card 1632x698, 4m x 3m room
     const crop = calculateRenderCrop(1920, 1080, 1632, 698, 4000, 3000)
-    expect(crop.zoom).toBeGreaterThanOrEqual(1.15)
-    expect(crop.zoom).toBeLessThanOrEqual(1.5)
+    expect(crop.zoom).toBeGreaterThanOrEqual(1.02)
+    expect(crop.zoom).toBeLessThanOrEqual(1.10)
     // Crop area must stay within canvas bounds
     expect(crop.sw).toBeLessThanOrEqual(1920)
     expect(crop.sh).toBeLessThanOrEqual(1080)

@@ -1,4 +1,4 @@
-import { ContactShadows, OrbitControls } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { MOUSE, Plane, Vector3, type Camera } from 'three'
@@ -53,7 +53,117 @@ function wallSegments(length: number, roomHeight: number, door: Door | null): Wa
 }
 
 function Box({ size, position, color, roughness = 0.7 }: { size: [number, number, number]; position: [number, number, number]; color: string; roughness?: number }) {
-  return <mesh castShadow receiveShadow position={position}><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={roughness} /></mesh>
+  return <mesh position={position}><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={roughness} /></mesh>
+}
+
+function Door3D({ side, room, door }: { side: WallSide; room: Room; door: Door }) {
+  if (door.side !== side) return null
+  const width = room.widthMm / 1000
+  const depth = room.depthMm / 1000
+  const horizontal = side === 'north' || side === 'south'
+  const length = horizontal ? width : depth
+  const doorW = door.widthMm / 1000
+  const doorH = door.heightMm / 1000
+  const start = door.offsetMm / 1000 - length / 2
+  const center = start + doorW / 2
+  const thickness = 0.08
+  const isOpen = door.open !== false
+  const isOutward = door.swing === 'outward'
+  const isFromLeft = door.openingSide === 'left'
+  const mult = isFromLeft ? -1 : 1
+  const hingePos = isFromLeft ? start + doorW - 0.03 : start + 0.03
+  const leafPos = (doorW * 0.47) * mult
+  const handlePos = (doorW * 0.84) * mult
+
+  if (side === 'south') {
+    const z = depth / 2 + thickness / 2
+    // ponytail: positive Y rotation moves +X towards -Z (inward into room)
+    const baseAngle = !isOpen ? 0 : (isOutward ? -Math.PI / 2.6 : Math.PI / 2.6)
+    const angle = baseAngle * mult
+    return (
+      <group>
+        <Box size={[doorW, 0.02, thickness + 0.04]} position={[center, 0.01, z]} color={darkWood} />
+        <Box size={[0.04, doorH, thickness + 0.02]} position={[start + 0.02, doorH / 2, z]} color={wood} />
+        <Box size={[0.04, doorH, thickness + 0.02]} position={[start + doorW - 0.02, doorH / 2, z]} color={wood} />
+        <Box size={[doorW, 0.04, thickness + 0.02]} position={[center, doorH - 0.02, z]} color={wood} />
+        <group position={[hingePos, 0, z]} rotation={[0, angle, 0]}>
+          <Box size={[doorW * 0.94, doorH * 0.97, 0.038]} position={[leafPos, doorH / 2, 0]} color="#7c4f36" />
+          <mesh position={[handlePos, 0.95, 0.035]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} />
+            <meshStandardMaterial color={brass} metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
+      </group>
+    )
+  }
+
+  if (side === 'north') {
+    const z = -depth / 2 - thickness / 2
+    // negative Y rotation moves +X towards +Z (inward into room)
+    const baseAngle = !isOpen ? 0 : (isOutward ? Math.PI / 2.6 : -Math.PI / 2.6)
+    const angle = baseAngle * mult
+    return (
+      <group>
+        <Box size={[doorW, 0.02, thickness + 0.04]} position={[center, 0.01, z]} color={darkWood} />
+        <Box size={[0.04, doorH, thickness + 0.02]} position={[start + 0.02, doorH / 2, z]} color={wood} />
+        <Box size={[0.04, doorH, thickness + 0.02]} position={[start + doorW - 0.02, doorH / 2, z]} color={wood} />
+        <Box size={[doorW, 0.04, thickness + 0.02]} position={[center, doorH - 0.02, z]} color={wood} />
+        <group position={[hingePos, 0, z]} rotation={[0, angle, 0]}>
+          <Box size={[doorW * 0.94, doorH * 0.97, 0.038]} position={[leafPos, doorH / 2, 0]} color="#7c4f36" />
+          <mesh position={[handlePos, 0.95, -0.035]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} />
+            <meshStandardMaterial color={brass} metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
+      </group>
+    )
+  }
+
+  if (side === 'west') {
+    const x = -width / 2 - thickness / 2
+    // positive Y rotation moves +Z towards +X (inward into room)
+    const baseAngle = !isOpen ? 0 : (isOutward ? -Math.PI / 2.6 : Math.PI / 2.6)
+    const angle = baseAngle * mult
+    return (
+      <group>
+        <Box size={[thickness + 0.04, 0.02, doorW]} position={[x, 0.01, center]} color={darkWood} />
+        <Box size={[thickness + 0.02, doorH, 0.04]} position={[x, doorH / 2, start + 0.02]} color={wood} />
+        <Box size={[thickness + 0.02, doorH, 0.04]} position={[x, doorH / 2, start + doorW - 0.02]} color={wood} />
+        <Box size={[thickness + 0.02, 0.04, doorW]} position={[x, doorH - 0.02, center]} color={wood} />
+        <group position={[x, 0, hingePos]} rotation={[0, angle, 0]}>
+          <Box size={[0.038, doorH * 0.97, doorW * 0.94]} position={[0, doorH / 2, leafPos]} color="#7c4f36" />
+          <mesh position={[0.035, 0.95, handlePos]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} />
+            <meshStandardMaterial color={brass} metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
+      </group>
+    )
+  }
+
+  if (side === 'east') {
+    const x = width / 2 + thickness / 2
+    // negative Y rotation moves +Z towards -X (inward into room)
+    const baseAngle = !isOpen ? 0 : (isOutward ? Math.PI / 2.6 : -Math.PI / 2.6)
+    const angle = baseAngle * mult
+    return (
+      <group>
+        <Box size={[thickness + 0.04, 0.02, doorW]} position={[x, 0.01, center]} color={darkWood} />
+        <Box size={[thickness + 0.02, doorH, 0.04]} position={[x, doorH / 2, start + 0.02]} color={wood} />
+        <Box size={[thickness + 0.02, doorH, 0.04]} position={[x, doorH / 2, start + doorW - 0.02]} color={wood} />
+        <Box size={[thickness + 0.02, 0.04, doorW]} position={[x, doorH - 0.02, center]} color={wood} />
+        <group position={[x, 0, hingePos]} rotation={[0, angle, 0]}>
+          <Box size={[0.038, doorH * 0.97, doorW * 0.94]} position={[0, doorH / 2, leafPos]} color="#7c4f36" />
+          <mesh position={[-0.035, 0.95, handlePos]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} />
+            <meshStandardMaterial color={brass} metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
+      </group>
+    )
+  }
+
+  return null
 }
 
 function Wall({ side, room, door }: { side: WallSide; room: Room; door: Door }) {
@@ -67,12 +177,17 @@ function Wall({ side, room, door }: { side: WallSide; room: Room; door: Door }) 
     ? [0, 0, side === 'north' ? -depth / 2 - thickness / 2 : depth / 2 + thickness / 2] as const
     : [side === 'west' ? -width / 2 - thickness / 2 : width / 2 + thickness / 2, 0, 0] as const
 
-  return wallSegments(length, height, door.side === side ? door : null).map((segment, index) => (
-    <mesh key={`${side}-${index}`} receiveShadow castShadow position={horizontal ? [segment.center, segment.y, position[2]] : [position[0], segment.y, segment.center]}>
-      <boxGeometry args={horizontal ? [segment.length, segment.height, thickness] : [thickness, segment.height, segment.length]} />
-      <meshStandardMaterial color="#dedbd3" roughness={0.92} />
-    </mesh>
-  ))
+  return (
+    <>
+      {wallSegments(length, height, door.side === side ? door : null).map((segment, index) => (
+        <mesh key={`${side}-${index}`} position={horizontal ? [segment.center, segment.y, position[2]] : [position[0], segment.y, segment.center]}>
+          <boxGeometry args={horizontal ? [segment.length, segment.height, thickness] : [thickness, segment.height, segment.length]} />
+          <meshStandardMaterial color="#dedbd3" roughness={0.92} />
+        </mesh>
+      ))}
+      {door.side === side && <Door3D side={side} room={room} door={door} />}
+    </>
+  )
 }
 
 function Bed({ width, depth, height, pillowPosition }: { width: number; depth: number; height: number; pillowPosition: 'top' | 'bottom' }) {
@@ -99,7 +214,7 @@ function Wardrobe({ width, depth, height }: { width: number; depth: number; heig
     <Box size={[width, height * 0.05, depth]} position={[0, height * 0.975, 0]} color={darkWood} />
     <Box size={[width * 0.98, height * 0.07, depth * 0.95]} position={[0, height * 0.035, 0]} color={darkWood} />
     {[-1, 1].map((side) => <Box key={side} size={[doorWidth, height * 0.78, 0.035]} position={[side * width * 0.235, height * 0.51, depth * 0.47]} color="#765038" />)}
-    {[-1, 1].map((side) => <mesh key={side} castShadow position={[side * width * 0.055, height * 0.51, depth * 0.505]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.012, 0.012, height * 0.18, 12]} /><meshStandardMaterial color={brass} metalness={0.75} roughness={0.3} /></mesh>)}
+    {[-1, 1].map((side) => <mesh key={side} position={[side * width * 0.055, height * 0.51, depth * 0.505]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.012, 0.012, height * 0.18, 12]} /><meshStandardMaterial color={brass} metalness={0.75} roughness={0.3} /></mesh>)}
   </>
 }
 
@@ -110,7 +225,7 @@ function Desk({ width, depth, height }: { width: number; depth: number; height: 
     <Box size={[width, top, depth]} position={[0, height - top / 2, 0]} color={wood} />
     {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], index) => <Box key={index} size={[leg, height - top, leg]} position={[x * (width / 2 - leg), (height - top) / 2, z * (depth / 2 - leg)]} color={darkWood} />)}
     <Box size={[width * 0.34, height * 0.19, depth * 0.78]} position={[width * 0.27, height * 0.82, 0]} color="#755039" />
-    <mesh castShadow position={[width * 0.27, height * 0.82, depth * 0.405]}><sphereGeometry args={[0.025, 12, 8]} /><meshStandardMaterial color={brass} metalness={0.75} roughness={0.3} /></mesh>
+    <mesh position={[width * 0.27, height * 0.82, depth * 0.405]}><sphereGeometry args={[0.025, 12, 8]} /><meshStandardMaterial color={brass} metalness={0.75} roughness={0.3} /></mesh>
   </>
 }
 
@@ -138,7 +253,7 @@ function Nightstand({ width, depth, height }: { width: number; depth: number; he
     <Box size={[width, topThick, depth]} position={[0, height - topThick / 2, 0]} color={wood} />
     <Box size={[width * 0.9, drawerHeight, depth * 0.9]} position={[0, height - topThick - drawerHeight / 2, 0]} color="#755038" />
     <Box size={[width * 0.84, drawerHeight * 0.85, 0.02]} position={[0, height - topThick - drawerHeight / 2, depth * 0.46]} color={wood} />
-    <mesh castShadow position={[0, height - topThick - drawerHeight / 2, depth * 0.48]}>
+    <mesh position={[0, height - topThick - drawerHeight / 2, depth * 0.48]}>
       <sphereGeometry args={[0.015, 12, 8]} />
       <meshStandardMaterial color={brass} metalness={0.8} roughness={0.25} />
     </mesh>
@@ -179,18 +294,18 @@ function CoatRack({ width, depth, height }: { width: number; depth: number; heig
   return <>
     <Box size={[width * 0.88, 0.04, width * 0.14]} position={[0, 0.02, 0]} color={darkWood} />
     <Box size={[width * 0.14, 0.04, depth * 0.88]} position={[0, 0.02, 0]} color={darkWood} />
-    <mesh castShadow position={[0, height * 0.48, 0]}>
+    <mesh position={[0, height * 0.48, 0]}>
       <cylinderGeometry args={[poleRadius, poleRadius * 1.25, height * 0.94, 16]} />
       <meshStandardMaterial color={darkWood} roughness={0.7} />
     </mesh>
-    <mesh castShadow position={[0, height * 0.965, 0]}>
+    <mesh position={[0, height * 0.965, 0]}>
       <sphereGeometry args={[poleRadius * 1.4, 16, 12]} />
       <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
     </mesh>
     {[[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0]].map(([dx, , dz], i) => (
       <group key={i} position={[dx * width * 0.18, height * 0.86, dz * depth * 0.18]}>
         <Box size={[dx !== 0 ? width * 0.22 : 0.025, 0.025, dz !== 0 ? depth * 0.22 : 0.025]} position={[0, 0, 0]} color={wood} />
-        <mesh castShadow position={[dx * 0.04, 0.025, dz * 0.04]}>
+        <mesh position={[dx * 0.04, 0.025, dz * 0.04]}>
           <sphereGeometry args={[0.02, 10, 8]} />
           <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
         </mesh>
@@ -199,7 +314,7 @@ function CoatRack({ width, depth, height }: { width: number; depth: number; heig
     {[[0.7, 0, 0.7], [-0.7, 0, 0.7], [-0.7, 0, -0.7], [0.7, 0, -0.7]].map(([dx, , dz], i) => (
       <group key={`mid-${i}`} position={[dx * width * 0.14, height * 0.65, dz * depth * 0.14]}>
         <Box size={[0.022, 0.022, 0.022]} position={[0, 0, 0]} color={wood} />
-        <mesh castShadow position={[dx * 0.03, 0.02, dz * 0.03]}>
+        <mesh position={[dx * 0.03, 0.02, dz * 0.03]}>
           <sphereGeometry args={[0.016, 10, 8]} />
           <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
         </mesh>
@@ -219,22 +334,22 @@ function FlowerVase({ width, depth, height }: { width: number; depth: number; he
     <Box size={[width * 0.85, 0.02, 0.02]} position={[0, tableHeight * 0.25, 0]} color={darkWood} />
     <Box size={[0.02, 0.02, depth * 0.85]} position={[0, tableHeight * 0.25, 0]} color={darkWood} />
     <Box size={[width * 0.95, 0.03, depth * 0.95]} position={[0, tableHeight + 0.015, 0]} color={wood} />
-    <mesh castShadow position={[0, tableHeight + 0.03 + vaseHeight * 0.42, 0]}>
+    <mesh position={[0, tableHeight + 0.03 + vaseHeight * 0.42, 0]}>
       <cylinderGeometry args={[width * 0.14, width * 0.22, vaseHeight * 0.84, 16]} />
       <meshStandardMaterial color={porcelain} roughness={0.25} metalness={0.08} />
     </mesh>
-    <mesh castShadow position={[0, tableHeight + 0.03 + vaseHeight * 0.9, 0]}>
+    <mesh position={[0, tableHeight + 0.03 + vaseHeight * 0.9, 0]}>
       <cylinderGeometry args={[width * 0.09, width * 0.12, vaseHeight * 0.24, 16]} />
       <meshStandardMaterial color={porcelain} roughness={0.25} metalness={0.08} />
     </mesh>
     {[-0.12, 0, 0.12].map((ox, i) => (
-      <mesh key={i} castShadow position={[ox * width, tableHeight + 0.03 + vaseHeight + 0.06, (i % 2 === 0 ? 0.05 : -0.05) * depth]}>
+      <mesh key={i} position={[ox * width, tableHeight + 0.03 + vaseHeight + 0.06, (i % 2 === 0 ? 0.05 : -0.05) * depth]}>
         <sphereGeometry args={[width * 0.12, 8, 8]} />
         <meshStandardMaterial color={leafGreen} roughness={0.8} />
       </mesh>
     ))}
     {[-0.08, 0.08].map((ox, i) => (
-      <mesh key={i} castShadow position={[ox * width, tableHeight + 0.03 + vaseHeight + 0.13, 0]}>
+      <mesh key={i} position={[ox * width, tableHeight + 0.03 + vaseHeight + 0.13, 0]}>
         <sphereGeometry args={[width * 0.06, 12, 8]} />
         <meshStandardMaterial color={flowerPetal} roughness={0.65} />
       </mesh>
@@ -249,19 +364,19 @@ function FloorLamp({ width, depth, height }: { width: number; depth: number; hei
   const shadeHeight = height * 0.22
   const poleRadius = 0.016
   return <>
-    <mesh castShadow receiveShadow position={[0, 0.025, 0]}>
+    <mesh position={[0, 0.025, 0]}>
       <cylinderGeometry args={[baseRadius, baseRadius * 1.05, 0.05, 24]} />
       <meshStandardMaterial color={darkWood} roughness={0.65} />
     </mesh>
-    <mesh castShadow position={[0, 0.055, 0]}>
+    <mesh position={[0, 0.055, 0]}>
       <cylinderGeometry args={[baseRadius * 0.5, baseRadius * 0.6, 0.015, 24]} />
       <meshStandardMaterial color={brass} metalness={0.85} roughness={0.25} />
     </mesh>
-    <mesh castShadow position={[0, height * 0.45, 0]}>
+    <mesh position={[0, height * 0.45, 0]}>
       <cylinderGeometry args={[poleRadius, poleRadius, height * 0.82, 16]} />
       <meshStandardMaterial color={brass} metalness={0.85} roughness={0.25} />
     </mesh>
-    <mesh castShadow position={[0, height * 0.86, 0]}>
+    <mesh position={[0, height * 0.86, 0]}>
       <cylinderGeometry args={[shadeRadius * 0.85, shadeRadius, shadeHeight, 24, 1, true]} />
       <meshStandardMaterial color="#faf2e3" roughness={0.95} side={2} />
     </mesh>
@@ -477,11 +592,11 @@ function Scene({ room, items, door, walls, selectedIds, mode, onSelect, onBoxSel
 
   return <>
     <color attach="background" args={['#d8d5cf']} />
-    <ambientLight color="#fff7ec" intensity={0.9} />
-    <hemisphereLight color="#f8eee0" groundColor="#756f68" intensity={1.1} />
-    <directionalLight position={[5, 9, 6]} color="#fff1d8" intensity={2.1} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} />
+    <ambientLight color="#fff7ec" intensity={1.1} />
+    <hemisphereLight color="#f8eee0" groundColor="#a8a39b" intensity={0.9} />
+    <directionalLight position={[5, 9, 6]} color="#fff1d8" intensity={1.8} />
     <gridHelper args={[Math.max(width, depth) * 1.8, Math.ceil(Math.max(width, depth) * 10), '#8f918d', '#c1c1bc']} position={[0, -0.005, 0]} />
-    <mesh receiveShadow position={[0, -0.035, 0]}><boxGeometry args={[width, 0.06, depth]} /><meshStandardMaterial color="#d9d5cc" roughness={0.88} /></mesh>
+    <mesh position={[0, -0.035, 0]}><boxGeometry args={[width, 0.06, depth]} /><meshStandardMaterial color="#d9d5cc" roughness={0.88} /></mesh>
     {(Object.keys(walls) as WallSide[]).map((side) => walls[side] && <Wall key={side} side={side} room={room} door={door} />)}
     {items.map((item) => {
       const size = footprint(item)
@@ -529,7 +644,6 @@ function Scene({ room, items, door, walls, selectedIds, mode, onSelect, onBoxSel
         )}
       </group>
     })}
-    <ContactShadows position={[0, 0.005, 0]} opacity={0.28} scale={Math.max(width, depth) * 1.4} blur={2.2} far={4} />
     <OrbitControls
       makeDefault
       enabled={!draggedId}
@@ -568,7 +682,7 @@ export function RoomCanvas(props: Props) {
 
   return (
     <div className="canvas-wrapper" data-mode={props.mode}>
-      <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [4.4, 5.2, 6.2], fov: 40 }}>
+      <Canvas ref={canvasRef} dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [1.8, 5.8, 6.4], fov: 42 }}>
         <Scene key={cancelKey} {...props} setMarqueeRect={setMarqueeRect} />
       </Canvas>
       {marqueeRect && (
