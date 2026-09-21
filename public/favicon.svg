@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#4a1f17" />
+  <rect x="3" y="3" width="58" height="58" rx="11" fill="none" stroke="#d59a35" stroke-width="1.5" stroke-opacity="0.6" />
+  <!-- Isometric 3D Room Volume -->
+  <path d="M32 13 L53 23.5 L32 34 L11 23.5 Z" fill="#b94c31" />
+  <path d="M11 23.5 L32 34 L32 51 L11 40.5 Z" fill="#87321f" />
+  <path d="M32 34 L53 23.5 L53 40.5 L32 51 Z" fill="#632115" />
+  <!-- Interior Room Floor Plan -->
+  <path d="M32 19 L47 26.5 L32 34 L17 26.5 Z" fill="#f7f0e3" />
+  <!-- Interior Golden Furniture Block 1:1 -->
+  <path d="M32 23 L41 27.5 L32 32 L23 27.5 Z" fill="#e0a43e" />
+  <!-- Architectural Corner Crosshairs -->
+  <path d="M32 6 L32 10 M32 54 L32 58 M6 32 L10 32 M54 32 L58 32" stroke="#f0cf91" stroke-width="2" stroke-linecap="round" />
+  <circle cx="32" cy="27.5" r="2" fill="#4a1f17" />
+</svg>

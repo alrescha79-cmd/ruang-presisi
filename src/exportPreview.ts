@@ -91,7 +91,8 @@ export function generateExportImage(
   items: Furniture[],
   door: Door,
   unit: MeasurementUnit,
-  threeCanvas: HTMLCanvasElement | null
+  threeCanvas: HTMLCanvasElement | null,
+  roomName = 'Kamar'
 ): string {
   const W = 2400
   const H = 2400
@@ -130,7 +131,7 @@ export function generateExportImage(
   // 2. HEADER
   const roomW_M = (room.widthMm / 1000).toFixed(1).replace('.0', '')
   const roomD_M = (room.depthMm / 1000).toFixed(1).replace('.0', '')
-  const title = `Layout Kamar ${roomW_M} × ${roomD_M} Meter`
+  const title = `${roomName} · ${roomW_M} × ${roomD_M} Meter`
 
   // Title badge
   ctx.fillStyle = '#87321f'
@@ -289,65 +290,64 @@ export function generateExportImage(
     const size = footprint(item)
     const ix = rX + item.xMm * scale
     const iz = rY + item.zMm * scale
-    const iw = size.widthMm * scale
-    const id = size.depthMm * scale
+    const iw = item.widthMm * scale
+    const id = item.depthMm * scale
+    const cx = ix + size.widthMm * scale / 2
+    const cy = iz + size.depthMm * scale / 2
 
     ctx.save()
-    // Furniture body
+    ctx.translate(cx, cy)
+    ctx.rotate(-((item.rotation ?? 0) * Math.PI) / 180)
     ctx.fillStyle = '#dfc8ad'
     ctx.strokeStyle = '#4e2d1d'
     ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.roundRect(ix, iz, iw, id, 6)
+    ctx.roundRect(-iw / 2, -id / 2, iw, id, 6)
     ctx.fill()
     ctx.stroke()
 
-    // Inner detail based on kind
     if (item.kind === 'bed') {
-      // Headboard & pillow mark
       const pillowEnd = item.pillowPosition === 'bottom' ? 1 : -1
-      const pY = pillowEnd === -1 ? iz + 10 : iz + id - 36
       ctx.fillStyle = '#f8f5ee'
       ctx.strokeStyle = '#856149'
       ctx.lineWidth = 1.5
-      // 2 pillows
-      const pW = iw * 0.38
-      ctx.strokeRect(ix + iw * 0.08, pY, pW, 26)
-      ctx.fillRect(ix + iw * 0.08, pY, pW, 26)
-      ctx.strokeRect(ix + iw * 0.54, pY, pW, 26)
-      ctx.fillRect(ix + iw * 0.54, pY, pW, 26)
+      ctx.fillRect(-iw / 2, pillowEnd * (id / 2 - 8) - 4, iw, 8)
+      const pillowW = iw * 0.38
+      const pillowD = id * 0.2
+      for (const x of [-iw * 0.28, iw * 0.28]) {
+        ctx.beginPath()
+        ctx.roundRect(x - pillowW / 2, pillowEnd * id * 0.29 - pillowD / 2, pillowW, pillowD, 4)
+        ctx.fill()
+        ctx.stroke()
+      }
     } else if (item.kind === 'wardrobe') {
-      // Door division line
       ctx.strokeStyle = '#6a4530'
       ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.moveTo(ix + iw / 2, iz)
-      ctx.lineTo(ix + iw / 2, iz + id)
+      ctx.moveTo(0, -id / 2)
+      ctx.lineTo(0, id / 2)
       ctx.stroke()
     } else if (item.kind === 'shoe_rack') {
-      // Slats
       ctx.strokeStyle = '#886249'
       ctx.lineWidth = 1.5
       for (let s = 1; s <= 3; s++) {
         ctx.beginPath()
-        ctx.moveTo(ix, iz + (id / 4) * s)
-        ctx.lineTo(ix + iw, iz + (id / 4) * s)
+        ctx.moveTo(-iw / 2, -id / 2 + (id / 4) * s)
+        ctx.lineTo(iw / 2, -id / 2 + (id / 4) * s)
         ctx.stroke()
       }
     }
+    ctx.restore()
 
-    // Furniture Label in center
+    ctx.save()
     ctx.fillStyle = '#291811'
     ctx.font = '700 20px "DM Sans", sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(item.name, ix + iw / 2, iz + id / 2 - 12)
-
-    // Furniture Dimension tag
+    ctx.fillText(item.name, cx, cy - 12)
     ctx.font = '600 16px "IBM Plex Mono", monospace'
     ctx.fillStyle = '#6d4c38'
-    ctx.fillText(`${Math.round(size.widthMm / 10)}×${Math.round(size.depthMm / 10)} cm`, ix + iw / 2, iz + id / 2 + 14)
-
+    ctx.fillText(`${Math.round(size.widthMm / 10)}×${Math.round(size.depthMm / 10)} cm`, cx, cy + 14)
     ctx.restore()
   })
 
