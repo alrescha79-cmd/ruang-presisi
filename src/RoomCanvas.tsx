@@ -1,19 +1,27 @@
 import { ContactShadows, OrbitControls } from '@react-three/drei'
-import { Canvas, type ThreeEvent } from '@react-three/fiber'
+import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
-import { Plane, Vector3 } from 'three'
-import type { Door, Furniture, Room, WallSide, WallVisibility } from './model'
-import { footprint, itemIssues, positionFromWorld } from './model'
+import { MOUSE, Plane, Vector3, type Camera } from 'three'
+import type { Door, Furniture, RectBox, Room, WallSide, WallVisibility } from './model'
+import { footprint, isBoxIntersecting, itemIssues, normalizeBox, positionFromWorld } from './model'
 
-type Props = {
+export type ViewportMode = 'select' | 'pan' | 'orbit'
+
+export type Props = {
   room: Room
   items: Furniture[]
   door: Door
   walls: WallVisibility
-  selectedId: string | null
-  onSelect: (id: string) => void
+  selectedIds: string[]
+  mode: ViewportMode
+  onSelect: (id: string, additive?: boolean) => void
+  onBoxSelect?: (ids: string[], additive?: boolean) => void
   onMove: (id: string, xMm: number, zMm: number) => void
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
+}
+
+type SceneProps = Props & {
+  setMarqueeRect: (rect: { left: number; top: number; width: number; height: number } | null) => void
 }
 
 const floorPlane = new Plane(new Vector3(0, 1, 0), 0)
@@ -317,7 +325,133 @@ function FurnitureModel({ item, width, depth, invalid }: { item: Furniture; widt
   return <Box size={[width, height, depth]} position={[0, height / 2, 0]} color={item.color} />
 }
 
-function Scene({ room, items, door, walls, selectedId, onSelect, onMove }: Props) {
+function getItemScreenBox(item: Furniture, room: Room, camera: Camera, width: number, height: number): RectBox {
+  const size = footprint(item)
+  const halfW = size.widthMm / 2000
+  const halfD = size.depthMm / 2000
+  const h = item.heightMm / 1000
+  const cx = (item.xMm + size.widthMm / 2) / 1000 - room.widthMm / 2000
+  const cz = (item.zMm + size.depthMm / 2) / 1000 - room.depthMm / 2000
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  const corners = [
+    new Vector3(cx - halfW, 0, cz - halfD),
+    new Vector3(cx + halfW, 0, cz - halfD),
+    new Vector3(cx - halfW, 0, cz + halfD),
+    new Vector3(cx + halfW, 0, cz + halfD),
+    new Vector3(cx - halfW, h, cz - halfD),
+    new Vector3(cx + halfW, h, cz - halfD),
+    new Vector3(cx - halfW, h, cz + halfD),
+    new Vector3(cx + halfW, h, cz + halfD),
+  ]
+
+  for (const corner of corners) {
+    corner.project(camera)
+    const sx = (corner.x * 0.5 + 0.5) * width
+    const sy = (-corner.y * 0.5 + 0.5) * height
+    if (sx < minX) minX = sx
+    if (sx > maxX) maxX = sx
+    if (sy < minY) minY = sy
+    if (sy > maxY) maxY = sy
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+function BackgroundMarquee({
+  room,
+  items,
+  mode,
+  onSelect,
+  onBoxSelect,
+  setMarqueeRect,
+}: {
+  room: Room
+  items: Furniture[]
+  mode: ViewportMode
+  onSelect: (id: string, additive?: boolean) => void
+  onBoxSelect?: (ids: string[], additive?: boolean) => void
+  setMarqueeRect: (rect: { left: number; top: number; width: number; height: number } | null) => void
+}) {
+  const { camera, size, gl } = useThree()
+  const startRef = useRef<{ x: number; y: number; additive: boolean } | null>(null)
+  const isDraggingRef = useRef(false)
+
+  return (
+    <mesh
+      position={[0, -0.01, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      onPointerDown={(event) => {
+        if (mode !== 'select' || event.button !== 0) return
+        event.stopPropagation()
+        ;(event.target as Element).setPointerCapture(event.pointerId)
+        const rect = gl.domElement.getBoundingClientRect()
+        startRef.current = {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+          additive: event.nativeEvent.shiftKey || event.nativeEvent.ctrlKey || event.nativeEvent.metaKey,
+        }
+        isDraggingRef.current = false
+      }}
+      onPointerMove={(event) => {
+        if (!startRef.current) return
+        event.stopPropagation()
+        const rect = gl.domElement.getBoundingClientRect()
+        const currentX = event.clientX - rect.left
+        const currentY = event.clientY - rect.top
+        const dx = currentX - startRef.current.x
+        const dy = currentY - startRef.current.y
+        if (!isDraggingRef.current && Math.hypot(dx, dy) > 6) {
+          isDraggingRef.current = true
+        }
+        if (isDraggingRef.current) {
+          setMarqueeRect({
+            left: Math.min(startRef.current.x, currentX),
+            top: Math.min(startRef.current.y, currentY),
+            width: Math.abs(dx),
+            height: Math.abs(dy),
+          })
+        }
+      }}
+      onPointerUp={(event) => {
+        if (!startRef.current) return
+        event.stopPropagation()
+        ;(event.target as Element).releasePointerCapture(event.pointerId)
+        const rect = gl.domElement.getBoundingClientRect()
+        const currentX = event.clientX - rect.left
+        const currentY = event.clientY - rect.top
+        const { additive } = startRef.current
+
+        if (isDraggingRef.current) {
+          const box = normalizeBox(startRef.current.x, startRef.current.y, currentX, currentY)
+          const hitIds = items
+            .filter((item) => {
+              const itemBox = getItemScreenBox(item, room, camera, size.width, size.height)
+              return isBoxIntersecting(box, itemBox)
+            })
+            .map((item) => item.id)
+
+          onBoxSelect?.(hitIds, additive)
+        } else {
+          if (!additive) onSelect('', false)
+        }
+
+        startRef.current = null
+        isDraggingRef.current = false
+        setMarqueeRect(null)
+      }}
+    >
+      <planeGeometry args={[300, 300]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  )
+}
+
+function Scene({ room, items, door, walls, selectedIds, mode, onSelect, onBoxSelect, onMove, setMarqueeRect }: SceneProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const dragOffset = useRef({ x: 0, z: 0 })
   const width = room.widthMm / 1000
@@ -335,6 +469,12 @@ function Scene({ room, items, door, walls, selectedId, onSelect, onMove }: Props
     onMove(item.id, position.xMm, position.zMm)
   }
 
+  const orbitMouseButtons = {
+    select: { LEFT: -1 as unknown as MOUSE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE },
+    pan: { LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE },
+    orbit: { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN },
+  }[mode]
+
   return <>
     <color attach="background" args={['#d8d5cf']} />
     <ambientLight color="#fff7ec" intensity={0.9} />
@@ -348,34 +488,71 @@ function Scene({ room, items, door, walls, selectedId, onSelect, onMove }: Props
       const issue = itemIssues(item, items, room)
       const itemWidth = size.widthMm / 1000
       const itemDepth = size.depthMm / 1000
+      const isSelected = selectedIds.includes(item.id)
+
       return <group
         key={item.id}
         position={[(item.xMm + size.widthMm / 2) / 1000 - width / 2, 0, (item.zMm + size.depthMm / 2) / 1000 - depth / 2]}
         onPointerDown={(event) => {
+          if (mode !== 'select') return
           event.stopPropagation()
           ;(event.target as EventTarget & Element).setPointerCapture(event.pointerId)
           const point = floorPoint(event)
           if (point) dragOffset.current = { x: point.x - ((item.xMm + size.widthMm / 2) / 1000 - width / 2), z: point.z - ((item.zMm + size.depthMm / 2) / 1000 - depth / 2) }
-          onSelect(item.id)
+          const isAdditive = event.nativeEvent.shiftKey || event.nativeEvent.ctrlKey || event.nativeEvent.metaKey
+          onSelect(item.id, isAdditive)
           setDraggedId(item.id)
         }}
         onPointerMove={(event) => { if (draggedId === item.id) drag(event, item) }}
-        onPointerUp={(event) => { event.stopPropagation(); (event.target as EventTarget & Element).releasePointerCapture(event.pointerId); setDraggedId(null) }}
+        onPointerUp={(event) => {
+          if (mode !== 'select') return
+          event.stopPropagation()
+          ;(event.target as EventTarget & Element).releasePointerCapture(event.pointerId)
+          setDraggedId(null)
+        }}
         onPointerCancel={() => setDraggedId(null)}
       >
         <group rotation={[0, ((item.rotation ?? 0) * Math.PI) / 180, 0]}>
           <FurnitureModel item={item} width={item.widthMm / 1000} depth={item.depthMm / 1000} invalid={issue.outside || issue.collision} />
         </group>
-        {selectedId === item.id && <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[itemWidth + 0.12, itemDepth + 0.12]} /><meshBasicMaterial color="#c78025" wireframe /></mesh>}
+        {isSelected && (
+          <group position={[0, 0.012, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[itemWidth + 0.12, itemDepth + 0.12]} />
+              <meshBasicMaterial color="#d59a35" wireframe />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[itemWidth + 0.1, itemDepth + 0.1]} />
+              <meshBasicMaterial color="#e0a43e" transparent opacity={0.2} />
+            </mesh>
+          </group>
+        )}
       </group>
     })}
     <ContactShadows position={[0, 0.005, 0]} opacity={0.28} scale={Math.max(width, depth) * 1.4} blur={2.2} far={4} />
-    <OrbitControls makeDefault enabled={!draggedId} target={[0, 0.5, 0]} maxPolarAngle={Math.PI / 2.05} minDistance={3} maxDistance={16} />
+    <OrbitControls
+      makeDefault
+      enabled={!draggedId}
+      target={[0, 0.5, 0]}
+      maxPolarAngle={Math.PI / 2.05}
+      minDistance={3}
+      maxDistance={16}
+      mouseButtons={orbitMouseButtons}
+    />
+    <BackgroundMarquee
+      room={room}
+      items={items}
+      mode={mode}
+      onSelect={onSelect}
+      onBoxSelect={onBoxSelect}
+      setMarqueeRect={setMarqueeRect}
+    />
   </>
 }
 
 export function RoomCanvas(props: Props) {
   const [cancelKey, setCancelKey] = useState(0)
+  const [marqueeRect, setMarqueeRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { onCanvasReady } = props
 
@@ -389,5 +566,22 @@ export function RoomCanvas(props: Props) {
     return () => { canvas.removeEventListener('pointercancel', cancel); canvas.removeEventListener('lostpointercapture', cancel) }
   }, [onCanvasReady])
 
-  return <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [5, 6, 7], fov: 42 }} onPointerMissed={() => props.onSelect('')}><Scene key={cancelKey} {...props} /></Canvas>
+  return (
+    <div className="canvas-wrapper" data-mode={props.mode}>
+      <Canvas ref={canvasRef} shadows dpr={[1, 1.75]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [5, 6, 7], fov: 42 }}>
+        <Scene key={cancelKey} {...props} setMarqueeRect={setMarqueeRect} />
+      </Canvas>
+      {marqueeRect && (
+        <div
+          className="marquee-overlay"
+          style={{
+            left: marqueeRect.left,
+            top: marqueeRect.top,
+            width: marqueeRect.width,
+            height: marqueeRect.height,
+          }}
+        />
+      )}
+    </div>
+  )
 }

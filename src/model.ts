@@ -15,6 +15,15 @@ export type WallSide = 'north' | 'east' | 'south' | 'west'
 export type Door = { side: WallSide; offsetMm: number; widthMm: number; heightMm: number }
 export type WallVisibility = Record<WallSide, boolean>
 export type MeasurementUnit = 'm' | 'cm' | 'mm'
+export type RoomProject = { id: string; name: string; room: Room; items: Furniture[]; door: Door; walls: WallVisibility }
+
+export const defaultRoom: Room = { widthMm: 4000, depthMm: 3000, heightMm: 2800 }
+export const defaultDoor: Door = { side: 'south', offsetMm: 400, widthMm: 900, heightMm: 2100 }
+export const defaultWalls: WallVisibility = { north: true, east: true, south: true, west: true }
+
+export function createRoomProject(id: string, name: string): RoomProject {
+  return { id, name, room: { ...defaultRoom }, items: [], door: { ...defaultDoor }, walls: { ...defaultWalls } }
+}
 
 const unitFactors: Record<MeasurementUnit, number> = { m: 1000, cm: 10, mm: 1 }
 
@@ -76,6 +85,45 @@ export function clampDoor(door: Door, room: Room): Door {
 export function normalizeRotation(deg: number) {
   const mod = Math.round(deg) % 360
   return mod < 0 ? mod + 360 : mod
+}
+
+export function bedPillowCenters(item: Furniture) {
+  const end = item.pillowPosition === 'bottom' ? 1 : -1
+  const angle = (normalizeRotation(item.rotation) * Math.PI) / 180
+  const size = footprint(item)
+  const centerX = size.widthMm / 2
+  const centerZ = size.depthMm / 2
+  return [-0.28, 0.28].map((offset) => ({
+    xMm: Math.round(centerX + offset * item.widthMm * Math.cos(angle) + end * item.depthMm * 0.29 * Math.sin(angle)),
+    zMm: Math.round(centerZ - offset * item.widthMm * Math.sin(angle) + end * item.depthMm * 0.29 * Math.cos(angle)),
+  }))
+}
+
+export function toggleItemSelection(selectedIds: string[], id: string, additive = false): string[] {
+  if (!id) return additive ? selectedIds : []
+  if (!additive) return [id]
+  return selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]
+}
+
+export type RectBox = { minX: number; minY: number; maxX: number; maxY: number }
+
+export function normalizeBox(x1: number, y1: number, x2: number, y2: number): RectBox {
+  return {
+    minX: Math.min(x1, x2),
+    minY: Math.min(y1, y2),
+    maxX: Math.max(x1, x2),
+    maxY: Math.max(y1, y2),
+  }
+}
+
+export function isBoxIntersecting(boxA: RectBox, boxB: RectBox): boolean {
+  return boxA.minX <= boxB.maxX && boxA.maxX >= boxB.minX && boxA.minY <= boxB.maxY && boxA.maxY >= boxB.minY
+}
+
+export function mergeBoxSelection(currentIds: string[], boxSelectedIds: string[], additive = false): string[] {
+  if (!additive) return [...boxSelectedIds]
+  const combined = new Set([...currentIds, ...boxSelectedIds])
+  return Array.from(combined)
 }
 
 export function footprint(item: Furniture) {

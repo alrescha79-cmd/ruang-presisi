@@ -12,7 +12,6 @@ dist
 dist-ssr
 coverage
 graphify-out
-public/
 src/assets/
 *.local
 .env
